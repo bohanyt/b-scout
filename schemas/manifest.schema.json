@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "B-Scout manifest 0.1-draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "example", "run_id", "status", "source", "coverage", "stages", "artifacts", "warnings"],
+  "properties": {
+    "schema_version": {"const": "0.1-draft"},
+    "example": {"type": "boolean"},
+    "run_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["partial", "complete", "failed", "cancelled"]},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_id", "display_name", "sha256", "width", "height", "time_base", "origin_pts", "duration_pts"],
+      "properties": {
+        "source_id": {"type": "string", "minLength": 1},
+        "display_name": {"type": "string", "minLength": 1},
+        "sha256": {"anyOf": [{"type": "string", "pattern": "^[a-f0-9]{64}$"}, {"type": "null"}]},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "time_base": {"type": "object", "additionalProperties": false, "required": ["num", "den"], "properties": {"num": {"type": "integer", "minimum": 1}, "den": {"type": "integer", "minimum": 1}}},
+        "origin_pts": {"type": "integer"},
+        "duration_pts": {"type": "integer", "minimum": 1}
+      }
+    },
+    "coverage": {
+      "type": "object", "additionalProperties": false, "required": ["decoded_frames", "scanned_frames", "gaps"],
+      "properties": {
+        "decoded_frames": {"type": ["integer", "null"], "minimum": 0},
+        "scanned_frames": {"type": ["integer", "null"], "minimum": 0},
+        "gaps": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "stages": {"type": "object", "additionalProperties": {"enum": ["not_run", "running", "complete", "skipped", "failed"]}, "minProperties": 1},
+    "artifacts": {
+      "type": "array", "items": {
+        "type": "object", "additionalProperties": false, "required": ["id", "path", "mime", "size_bytes", "sha256"],
+        "properties": {"id": {"type": "string", "minLength": 1}, "path": {"type": "string", "minLength": 1}, "mime": {"type": "string", "minLength": 1}, "size_bytes": {"type": "integer", "minimum": 0}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+      }
+    },
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  }
+}

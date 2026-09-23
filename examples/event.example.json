@@ -1,0 +1,17 @@
+{
+  "schema_version": "0.1-draft",
+  "event_id": "EXAMPLE-E0001",
+  "source_id": "synthetic-example",
+  "kind": "visual_change_candidate",
+  "start": {"frame_index": 120, "pts": 120000},
+  "end_exclusive": {"frame_index": 125, "pts": 125000},
+  "region_xywh": [320, 180, 640, 360],
+  "signals": {"region_change": 0.8, "text_novelty": null},
+  "best_frame": null,
+  "context": {"start_pts": 0, "end_pts": 305000, "asset_ids": []},
+  "ocr": {"status": "not_run", "text": null, "provider": null, "score": null},
+  "content_id": null,
+  "occurrence": 1,
+  "needs_review": true,
+  "warnings": ["Illustrative five-frame interval, not a measured detection. Evidence has not been generated."]
+}

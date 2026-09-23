@@ -1,0 +1,20 @@
+{
+  "schema_version": "0.1-draft",
+  "example": true,
+  "run_id": "illustrative-run-not-executed",
+  "status": "partial",
+  "source": {
+    "source_id": "synthetic-example",
+    "display_name": "example-only.mp4",
+    "sha256": null,
+    "width": 1280,
+    "height": 720,
+    "time_base": {"num": 1, "den": 60000},
+    "origin_pts": 0,
+    "duration_pts": 600000
+  },
+  "coverage": {"decoded_frames": null, "scanned_frames": null, "gaps": ["Illustrative record; no source was decoded."]},
+  "stages": {"visual": "not_run", "ocr": "not_run", "speech": "skipped"},
+  "artifacts": [],
+  "warnings": ["Documentation example only. No source video, frames, or READY marker are supplied."]
+}

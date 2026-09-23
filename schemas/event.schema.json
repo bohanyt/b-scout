@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "B-Scout event 0.1-draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_id", "source_id", "kind", "start", "end_exclusive", "region_xywh", "signals", "best_frame", "context", "ocr", "content_id", "occurrence", "needs_review", "warnings"],
+  "properties": {
+    "schema_version": {"const": "0.1-draft"},
+    "event_id": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "kind": {"enum": ["visual_change_candidate", "text_candidate", "ui_candidate", "speech_segment"]},
+    "start": {"type": "object", "additionalProperties": false, "required": ["frame_index", "pts"], "properties": {"frame_index": {"type": "integer", "minimum": 0}, "pts": {"type": "integer"}}},
+    "end_exclusive": {"type": "object", "additionalProperties": false, "required": ["frame_index", "pts"], "properties": {"frame_index": {"type": "integer", "minimum": 0}, "pts": {"type": "integer"}}},
+    "region_xywh": {"anyOf": [{"type": "array", "prefixItems": [{"type": "integer", "minimum": 0}, {"type": "integer", "minimum": 0}, {"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}], "items": false, "minItems": 4}, {"type": "null"}]},
+    "signals": {"type": "object", "additionalProperties": {"type": ["number", "null"], "minimum": 0, "maximum": 1}},
+    "best_frame": {"anyOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["asset_id", "frame_index", "pts"], "properties": {"asset_id": {"type": "string", "minLength": 1}, "frame_index": {"type": "integer", "minimum": 0}, "pts": {"type": "integer"}}}]},
+    "context": {"type": "object", "additionalProperties": false, "required": ["start_pts", "end_pts", "asset_ids"], "properties": {"start_pts": {"type": "integer"}, "end_pts": {"type": "integer"}, "asset_ids": {"type": "array", "items": {"type": "string"}}}},
+    "ocr": {"type": "object", "additionalProperties": false, "required": ["status", "text", "provider", "score"], "properties": {"status": {"enum": ["not_run", "complete", "unreadable", "failed"]}, "text": {"type": ["string", "null"]}, "provider": {"type": ["string", "null"]}, "score": {"type": ["number", "null"], "minimum": 0, "maximum": 1}}},
+    "content_id": {"type": ["string", "null"]},
+    "occurrence": {"type": "integer", "minimum": 1},
+    "needs_review": {"type": "boolean"},
+    "warnings": {"type": "array", "items": {"type": "string"}}
+  }
+}

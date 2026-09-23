@@ -1,0 +1,2 @@
+# Bootstrap schema checks only; no runtime/ML dependency selected.
+jsonschema==4.26.0
