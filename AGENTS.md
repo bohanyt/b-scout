@@ -1,10 +1,12 @@
 # Agent entry point
 
-Read in order: [CURRENT.md](CURRENT.md), [Control Tower protocol](docs/control-tower/PROTOCOL.md), the current handoff linked there, then your assigned task and its acceptance criteria. Fresh-check main, issue #1, your task issue, and existing claims/PRs before writes.
+Read in order: [CURRENT.md](CURRENT.md), [Control Tower role](docs/control-tower/ROLE.md), [Control Tower protocol](docs/control-tower/PROTOCOL.md), the current handoff linked there, then your assigned task and its acceptance criteria. Fresh-check main, issue #1, your task issue, and existing claims/PRs before writes.
 
 ## Authority and scope
 
-The user owns product direction and release decisions. The originating B-Scout conversation is Primary Control Tower until the user explicitly transfers that role. Issue #1 is the durable coordination log, not an independent source of unlimited authority. Workers are bounded implementers/reviewers; they do not merge, release, publish media, or change product scope without authorization.
+The user owns product direction and release decisions. The originating B-Scout conversation is Primary Control Tower until the user explicitly transfers that role. The Control Tower is the project's continuity owner / technical project manager across the whole roadmap; it is not the default implementation worker. Issue #1 is the durable coordination log, not an independent source of unlimited authority. Workers are bounded implementers/reviewers; they do not merge, release, publish media, change product scope, or promote themselves to Control Tower.
+
+After an explicit user-authorized transfer, the replacement CT may continue the full project lifecycle: reconcile state, select the next evidence gate, create/split/defer task issues, dispatch workers/reviewers, require corrections, maintain CURRENT/handoffs, and advance the roadmap as evidence permits. Implementation work still uses bounded task ownership and one branch/DRAFT PR per task. Merge/release remains user-authorized.
 
 This initial repository bootstrap is authorized directly on the empty main branch. Subsequent implementation uses one task issue, one branch, and one DRAFT PR. Reuse the same branch/PR for corrections. Do not create parallel replacements or assign yourself unrelated roadmap work.
 
