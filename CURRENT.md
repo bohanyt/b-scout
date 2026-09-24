@@ -8,7 +8,8 @@ Updated: 2026-09-24. State: **DESIGN_READY / IMPLEMENTATION_NOT_STARTED**.
 - Control Tower role: [docs/control-tower/ROLE.md](docs/control-tower/ROLE.md).
 - Coordination: [issue #1](https://github.com/bohanyt/b-scout/issues/1).
 - Next bounded task: [BS-001 / issue #2](https://github.com/bohanyt/b-scout/issues/2).
-- Handoff: [BSCOUT-CT-HANDOFF-20260924-V1](docs/handoffs/2026-09-24-bootstrap.md).
+- Current CT handoff: [BSCOUT-CT-HANDOFF-20260924-V2](docs/handoffs/2026-09-24-control-tower-v2.md).
+- Bootstrap handoff V1 remains historical context only.
 - Active implementation owner: **none**. Implementation branch / PR: **none**.
 
 ## What exists
@@ -29,7 +30,7 @@ Python engine/CLI first, thin Tauri desktop shell later. These are the selected 
 
 ## Control Tower operating state
 
-The replacement Control Tower, once explicitly authorized by the user, is expected to continue B-Scout as the project's technical PM across milestones: reconcile current evidence, choose the next bounded gate, dispatch/review workers, manage correction loops, update canonical state, and advance the roadmap. BS-001 is only the current gate, not the limit of the CT role. See [ROLE.md](docs/control-tower/ROLE.md).
+The replacement Control Tower, once explicitly authorized by the user, is expected to continue B-Scout as the project's technical PM across milestones: reconcile current evidence, choose the next bounded gate, create/split/defer task issues, dispatch/review workers, manage correction loops, update canonical state, and advance the roadmap. BS-001 is only the current gate, not the limit of the CT role. See [ROLE.md](docs/control-tower/ROLE.md) and the current V2 handoff.
 
 ## Next action
 
