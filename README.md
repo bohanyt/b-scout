@@ -29,7 +29,7 @@ Visual processing is intended to run locally. **Enabling Groq sends selected aud
 - [Documentation index](docs/README.md): architecture, UX, packet format, and acceptance gates.
 - [Control Tower](https://github.com/bohanyt/b-scout/issues/1): coordination and authority.
 - [First implementation task](https://github.com/bohanyt/b-scout/issues/2): BS-001, offline native-frame baseline.
-- [Full handoff](docs/handoffs/2026-09-24-bootstrap.md): continuation packet.
+- [Full handoff](docs/handoffs/2026-09-24-control-tower-v3.md): current CT continuity packet.
 
 ## Available now
 

@@ -1,43 +1,39 @@
 # Current state
 
 Updated: 2026-09-24. State: **DESIGN_READY / IMPLEMENTATION_NOT_STARTED**.
+Current evidence gate: **BS-001 checkpoint A — READY / UNCLAIMED**.
 
-## Canonical pointers
+## Canonical pointers and authority
 
-- Primary Control Tower: originating B-Scout design conversation; user retains product/release authority.
-- Control Tower role: [docs/control-tower/ROLE.md](docs/control-tower/ROLE.md).
-- Coordination: [issue #1](https://github.com/bohanyt/b-scout/issues/1).
-- Next bounded task: [BS-001 / issue #2](https://github.com/bohanyt/b-scout/issues/2).
-- Current CT handoff: [BSCOUT-CT-HANDOFF-20260924-V2](docs/handoffs/2026-09-24-control-tower-v2.md).
-- Bootstrap handoff V1 remains historical context only.
-- Active implementation owner: **none**. Implementation branch / PR: **none**.
+- Primary Control Tower: **BSCOUT-CT-20260924-A**, explicitly authorized by the user; [transfer record](https://github.com/bohanyt/b-scout/issues/1#issuecomment-5805761944).
+- User retains product, privacy/cost, major UX, implementation-merge/release, and final-acceptance authority.
+- [CT role](docs/control-tower/ROLE.md), [protocol](docs/control-tower/PROTOCOL.md), and [coordination issue #1](https://github.com/bohanyt/b-scout/issues/1).
+- Current handoff: [BSCOUT-CT-HANDOFF-20260924-V3](docs/handoffs/2026-09-24-control-tower-v3.md). V1/V2 are historical snapshots.
+- Active task: [BS-001 / issue #2](https://github.com/bohanyt/b-scout/issues/2); [checkpoint dispatch and review packet](docs/tasks/BS-001-native-frame-baseline.md).
+- [Pinned bootstrap-readiness audit](docs/audits/2026-09-24-bootstrap-readiness.md). Publication heads belong in issue #1, not self-referentially here.
 
-## What exists
+## What exists and what was tested
 
-Root onboarding and governance, product/UX direction, multi-rate architecture, packet specification and draft schemas, illustrative records, bootstrap validation tests, a durable Control Tower/project-manager role, and a detailed BS-001 dispatch. Exact publication head and test evidence belong in issue #1; do not embed a self-referential HEAD here.
+Product/architecture/privacy/acceptance/roadmap documentation, draft packet schemas and illustrative records, bootstrap checks, governance, and bounded task packets exist. The CT reran **13 bootstrap unit tests successfully** using six Git-blob-verified files from the audited main revision in Linux / Python 3.13.5 / jsonschema 4.26.0. Two schema definitions and their two examples also validated.
+
+Six additional readiness probes exposed limits of the intentionally bootstrap-only validator and schema. These are requirements for the later runtime validator, not proof of a working or broken scanner. The audit records reproduction steps, exact inputs, and limitations. The full bootstrap documentation-link/entry-point command and Windows/Python 3.11 were not run in that audit.
 
 ## What does not exist
 
-No scanner, text/UI detector, OCR adapter, Groq adapter, synthetic video benchmark, desktop UI, Drive exporter, MCP server, or validated real-video recall/speed results. Example JSON is authored documentation, not analysis output.
+No video scanner, detector, OCR/Groq adapter, synthetic-video runtime corpus, desktop UI, Drive exporter, MCP server, or validated real-video recall/speed. Example JSON is authored documentation, not analysis output. No runtime checkpoint of BS-001 has passed.
 
-## Agreed direction
+## Ownership and next action
 
-Independent public project named B-Scout; local in-place video processing; generic footage with sparse-speech gameplay as the first test; event evidence for humans and AI; optional Groq speech transcription; eventual drag-and-drop desktop experience; portable packet export for Drive or local agents.
+Implementation owner: **none**. Implementation branch / PR: **none** at this snapshot. No external worker was launched: the CT session had repository coordination and a local test container, but no successfully discovered worker-launch channel. A published dispatch is not a running worker or claim. Fresh-check issue #2 and PRs before claiming.
 
-## Current engineering choices
+**Activate only checkpoint A within issue #2:** deterministic synthetic truth fixtures, reviewed decoder dependency/provenance, native presentation-frame PTS ledger, and exact oracle-frame re-extraction. Stop for CT review at an exact head. Suggested lineage remains `agent/bs-001-native-frame-baseline` and one DRAFT PR; create it only after a real worker claims.
 
-Python engine/CLI first, thin Tauri desktop shell later. These are the selected bootstrap design, not a claim of packaged support. Text detector/model, inference runtime, thresholds, final frame sizes/rates, and decoder integration must be benchmarked. No numerical speed or recall target has passed.
+Checkpoint B (regional-change candidates/evidence) and checkpoint C (runtime packet integrity/full Gate B evaluation) remain held until explicitly dispatched by the CT. They continue on the same BS-001 lineage. Checkpoint A is not detection recall or full BS-001 acceptance. After accepted evidence the CT may advance ordinary engineering without asking the user again; implementation merge and release still need explicit authorization.
 
-## Control Tower operating state
+## Direction and operating limits
 
-The replacement Control Tower, once explicitly authorized by the user, is expected to continue B-Scout as the project's technical PM across milestones: reconcile current evidence, choose the next bounded gate, create/split/defer task issues, dispatch/review workers, manage correction loops, update canonical state, and advance the roadmap. BS-001 is only the current gate, not the limit of the CT role. See [ROLE.md](docs/control-tower/ROLE.md) and the current V2 handoff.
+Independent public, local-first footage scout; generic footage with sparse-speech gameplay as the first demanding use case. Preserve one-frame evidence and source timestamps. Python engine/CLI first; thin Tauri drag/drop desktop remains the intended destination. Groq, private Drive delivery, and MCP are later bounded gates, not additions to BS-001.
 
-## Next action
+No user/private media, transcripts, machine-specific paths, or private project links in this repository. No paid/provider calls, model downloads, automatic uploads, or GitHub Actions dispatch/rerun for the current work. Use local proof; include `[skip ci]` on applicable push/PR commits and verify no workflow run was started. Skipped CI is not passing CI. Do not change workflow settings as a workaround.
 
-The CT should dispatch or review one BS-001 worker: synthetic truth set + source-time-preserving decode + inexpensive region-change baseline + packet writer/evaluator. No UI, Groq, OCR model, cloud upload, or MCP in that task. See [dispatch](docs/tasks/BS-001-native-frame-baseline.md).
-
-After BS-001 is accepted, the CT decides whether BS-002 is ready or whether a correction/research gate is required first. Workers do not auto-advance the roadmap.
-
-## Known risks
-
-Tiny or low-contrast UI can evade cheap gates; animated HUD creates noise; averaging/scene boundaries can erase short events; inaccurate seek/PTS handling mislabels frames; packets may expose private data; a JSON file alone does not let an agent see images that are inaccessible. See the architecture, acceptance, and privacy documents before changing any of these boundaries.
+Decoder choice, region scales/thresholds, OCR runtime/models, resource budgets, Windows packaging, and numerical recall/speed targets remain evidence-dependent. Normal implementation details belong to bounded engineering review; product/privacy/cost/release/major UX changes go to the user.
