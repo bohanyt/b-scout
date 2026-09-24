@@ -4,23 +4,11 @@
 
 B-Scout is a local-first footage indexing project. Its focus is visual context when speech is sparse: brief tutorial popups, on-screen text, menu changes, and other moments that ordinary frame sampling can miss. Gameplay is the first demanding use case, not the product boundary.
 
-> **Status: design / contract bootstrap.** No working video analyzer, desktop installer, Groq integration, or MCP server is shipped yet. High recall is an evaluation goal, not a guarantee that nothing is missed.
+> **Status: design / contract bootstrap; first implementation gate pre-build-reviewed.** No working video analyzer, desktop installer, Groq integration, or MCP server is shipped yet. High recall is an evaluation goal, not a guarantee that nothing is missed.
 
 ## Intended experience
 
 Drop a local video into a desktop window, choose an output folder, and scan without uploading or duplicating the raw source. Review an event timeline with evidence frames, text, and optional speech. Export a portable packet for an editor or AI agent.
-
-```text
-Local video -> native-frame change signals -> candidate regions/events
-                           |                         |
-                           |                 text/UI checks + OCR
-                           |                         |
-Optional selected audio -> Groq transcription -> evidence packet
-                                                     |
-                                    local timeline / Drive / AI review
-```
-
-Visual processing is intended to run locally. **Enabling Groq sends selected audio to Groq.** Sharing a packet sends its selected screenshots/text to the chosen destination. Nothing should upload automatically.
 
 ## Start here
 
@@ -28,20 +16,12 @@ Visual processing is intended to run locally. **Enabling Groq sends selected aud
 - [AGENTS.md](AGENTS.md): mandatory agent entry point.
 - [Documentation index](docs/README.md): architecture, UX, packet format, and acceptance gates.
 - [Control Tower](https://github.com/bohanyt/b-scout/issues/1): coordination and authority.
-- [First implementation task](https://github.com/bohanyt/b-scout/issues/2): BS-001, offline native-frame baseline.
-- [Full handoff](docs/handoffs/2026-09-24-control-tower-v3.md): current CT continuity packet.
+- [First implementation task](https://github.com/bohanyt/b-scout/issues/2): BS-001, checkpoint A.
+- [Current handoff](docs/handoffs/2026-09-24-control-tower-v4.md): continuity snapshot.
 
 ## Available now
 
-Design documents, draft JSON Schemas, clearly labeled illustrative records, and bootstrap checks. To check this repository with Python 3.11+:
-
-```bash
-python -m pip install -r requirements-dev.txt
-python scripts/check_bootstrap.py
-python -m unittest discover -s tests -v
-```
-
-These validate the documentation/contracts, **not** video detection. The planned `bscout analyze` command does not exist yet.
+Design documents, draft JSON Schemas, illustrative records, bootstrap checks, a bootstrap-readiness audit and a pre-build-reviewed checkpoint-A implementation packet. The planned production `bscout analyze` command does not exist yet.
 
 ## Principles
 
