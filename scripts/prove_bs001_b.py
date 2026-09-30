@@ -121,21 +121,30 @@ def read_jsonl(path):
 
 def redact(value, work):
     """Keep public reports free of checkout, interpreter and disposable paths."""
-    if isinstance(value, dict):
-        return {k: redact(v, work) for k, v in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [redact(v, work) for v in value]
-    if isinstance(value, str):
-        for path, replacement in ((work, "[work]"), (ROOT, "[checkout]"),
-                                  (Path(sys.executable), "[proof-python]"),
-                                  (Path(tempfile.gettempdir()), "[temporary]"),
-                                  (Path.home(), "[user]")):
-            for private in (str(path), str(path.resolve()), str(path).replace("\\", "/"),
-                            str(path.resolve()).replace("\\", "/"), str(path).replace("\\", "\\\\"),
-                            str(path.resolve()).replace("\\", "\\\\")):
-                value = value.replace(private, replacement)
-        return value
-    return value
+    # Resolve the five roots once per report, rather than performing filesystem
+    # lookups for every identity/digest/candidate string in a large archive.
+    replacements = []
+    for path, replacement in ((work, "[work]"), (ROOT, "[checkout]"),
+                              (Path(sys.executable), "[proof-python]"),
+                              (Path(tempfile.gettempdir()), "[temporary]"),
+                              (Path.home(), "[user]")):
+        original, resolved = str(path), str(path.resolve())
+        variants = (original, resolved, original.replace("\\", "/"),
+                    resolved.replace("\\", "/"), original.replace("\\", "\\\\"),
+                    resolved.replace("\\", "\\\\"))
+        replacements.extend((private, replacement) for private in dict.fromkeys(variants))
+
+    def visit(item):
+        if isinstance(item, dict):
+            return {k: visit(v) for k, v in item.items()}
+        if isinstance(item, (list, tuple)):
+            return [visit(v) for v in item]
+        if isinstance(item, str):
+            for private, replacement in replacements:
+                item = item.replace(private, replacement)
+        return item
+
+    return visit(value)
 
 
 def independent_frames(source, spec, fixture, decode_config):

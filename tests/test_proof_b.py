@@ -10,6 +10,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/"src"))
@@ -25,6 +26,15 @@ class SyntheticConfig:
 
 
 class FreezeTests(unittest.TestCase):
+    def test_large_report_redaction_uses_bounded_filesystem_lookups(self):
+        work = ROOT / "synthetic-report-work"
+        value = [str(work / f"frame-{index}") for index in range(1000)]
+        original = Path.resolve
+        with mock.patch.object(Path, "resolve", autospec=True, side_effect=original) as resolve:
+            cleaned = proof.redact(value, work)
+        self.assertLessEqual(resolve.call_count, 10)
+        self.assertTrue(all(item.startswith("[work]") for item in cleaned))
+
     def record(self):
         config = {"version": "fixture-only-v1", "threshold": 3}
         return {"configuration": config, "configuration_sha256": proof.canonical_hash(config),
