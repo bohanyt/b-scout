@@ -1,62 +1,36 @@
 # Current state
 
-Updated: 2026-09-30. State: **DESIGN_READY / IMPLEMENTATION_NOT_STARTED**.
-Current evidence gate: **BS-001 checkpoint A — PREBUILD_REVIEWED / REDISPATCHED / AWAITING WORKER CLAIM**.
+Updated: 2026-09-30. State: **CHECKPOINT A IMPLEMENTED / TESTED; NOT ACCEPTED**.
+Active evidence gate: **BS-001 A R2 source-bound recovery correction — DESIGN SELECTED / READY TO CLAIM**.
 
-## Canonical pointers and authority
+## Authority and read order
 
-- Active successor Control Tower: **BSCOUT-CT-20260930-B**, explicitly authorized by the user; transfer record: issue #1 comment `5902177064`.
-- Previous CT transfer/history remains in issue #1; V5 is the handoff this successor consumed.
-- User retains product, privacy/cost, major UX, implementation-merge/release, and final-acceptance authority.
-- [CT role](docs/control-tower/ROLE.md), [protocol](docs/control-tower/PROTOCOL.md), and [coordination issue #1](https://github.com/bohanyt/b-scout/issues/1).
-- Current handoff snapshot: [BSCOUT-CT-HANDOFF-20260930-V5](docs/handoffs/2026-09-30-control-tower-v5.md). Earlier handoffs are historical snapshots.
-- Active task: [BS-001 / issue #2](https://github.com/bohanyt/b-scout/issues/2); [checkpoint dispatch/review packet](docs/tasks/BS-001-native-frame-baseline.md).
-- Independent pre-build review: issue #2 comment `5806205721`, key `BSCOUT-PREBUILD-OPUS-20260924-V1`.
-- CT incorporation of that review: issue #2 comment `5806347830`.
-- Stale-claim reconciliation: issue #2 comment `5902132762`.
-- Successor CT redispatch packet: issue #2 comment `5902191123`.
+Active Control Tower: **BSCOUT-CT-20260930-B**, user-authorized transfer in [Issue #1 comment 5902177064](https://github.com/bohanyt/b-scout/issues/1#issuecomment-5902177064). User retains product/privacy/cost/major-UX and implementation-merge/release authority.
 
-## Reconciled repository state
+Read AGENTS, this file, [CT role](docs/control-tower/ROLE.md), [protocol](docs/control-tower/PROTOCOL.md), Issue #1 with current comments, full [handoff V6](docs/handoffs/2026-09-30-control-tower-v6.md), Issue #2 with all comments, the [parent A/B/C packet](docs/tasks/BS-001-native-frame-baseline.md), and the [active R2 correction packet](docs/tasks/BS-001-A-R2-source-bound-recovery.md). Then fresh-check refs, claims and evidence.
 
-Fresh check on 2026-09-30 before this successor-state sync:
+V5 and older preimplementation/ready-to-redispatch paragraphs are historical snapshots. This state and the R2 packet supersede their dispatch/ownership status, not the parent acceptance requirements.
 
-- `main` = `5e2bcba337f5e26b0ace7b4fbf8ee6c8c59cd17d`.
-- Branch `agent/bs-001-native-frame-baseline` = `1f9c53b3bf205d80628244bd7ce715535a99d5ef`, 0 ahead / 1 behind that main.
-- No pull requests existed.
-- Previous checkpoint-A worker claim `5806413667` remains **STALE / UNFULFILLED / SUPERSEDED FOR OWNERSHIP PURPOSES**.
-- No implementation commit, no DRAFT PR, no completion/handoff comment and no runtime evidence exists for A.
-- The successor CT posted one bounded checkpoint-A redispatch packet, but **no worker claim is active yet**.
+## Implemented and tested, not yet accepted
 
-The existing branch remains the required single BS-001 implementation lineage. The next worker must fresh-check current main and bring that branch forward before source work.
+The implementation exists on **agent/bs-001-native-frame-baseline / DRAFT PR #3**, not on main. Current implementation head at reconciliation: **ce4ef9c4fa574fd34f95154b7a555eb4bc80f332**. PR #3 is open, draft and unmerged. Main before this documentation publication was e35e3e6a6990a96e7c3efd2c0a23da24a5630c2b. Publication SHA belongs in Issue #1, not self-referentially here.
 
-## What exists
+A's synthetic corpus, frame-ID oracle, native-time ledger, native-plane digests, survival/lossless proof and seek harness are implemented. Windows/Python 3.11.9 synthetic proof was independently reproduced: **70 pass / 0 fail / 3 accepted skips**, 3,360 ID-mapped frames, 2,880 supported fixed-corpus seek recoveries and 480 lossless frames. These are scoped test/runtime observations, NOT acceptance of the recovery contract, detector recall, or Windows product support.
 
-Bootstrap/governance/product/architecture/privacy/acceptance/roadmap documentation, draft packet schemas, illustrative records, bootstrap checks, the bootstrap-readiness audit, and the pre-build-reviewed checkpoint-A task packet.
+Latest independent verdict: **NEEDS_FIX**, [Issue #2 comment 5903733062](https://github.com/bohanyt/b-scout/issues/2#issuecomment-5903733062). A self-consistent shortened/reindexed ledger with the correct source SHA can still make API/CLI report the wrong duplicate-PTS occurrence. Internal ledger consistency is not proof of the complete source traversal.
 
-The pre-build review found no architecture blocker. A→B→C remains the approved engineering order. Checkpoint A has the stronger oracle/timing/seek/reproducibility requirements already incorporated in the task packet.
+## Selected correction and ownership
 
-## What does not exist
+R2 selects one core-generated, source/configuration-bound **ValidatedTraversal**, built by a full sequential decode to EOF/flush. Caller JSON is a cross-check only. Real seek-back/decode-forward remains required and is checked against that trusted traversal. Validate once and reuse within the process; no authenticated persisted cache/key management in A.
 
-No implementation of the runtime synthetic corpus, decoder/ledger engine, oracle verifier, regional detector, packet runtime, OCR/Groq adapter, desktop UI, Drive exporter, MCP server, or validated real-video recall/speed.
+Read the complete [R2 packet](docs/tasks/BS-001-A-R2-source-bound-recovery.md) before work. This is a selected design, not an implemented fix or an acceptance verdict.
 
-No BS-001 checkpoint has passed runtime review.
+Implementation claim 5902356966 and correction claim 5903287424 are released. Old claim 5806413667 remains superseded. **No R2 worker is running or claimed at this publication.** One local Sol 6.1 High lead may claim R2; Fast and same-model/same-effort subagents are allowed. One writer per file/scope; one remote branch and existing DRAFT PR #3 only.
 
-## Next action
+Do not reset the implementation branch to main or repeat the original blank-branch redispatch. Fetch/read fresh main authority; a normal non-force merge of coordination-only main into the implementation branch is allowed if needed, with [skip ci] and preserved implementation history. No implementation merge into main is authorized.
 
-Exactly one checkpoint-A implementation worker should claim issue #2 under redispatch comment `5902191123`.
+## Next evidence gate and held work
 
-The worker must explicitly supersede stale claim `5806413667`, reuse `agent/bs-001-native-frame-baseline`, bring it to current main, create one DRAFT PR, implement A only, run proof in its own disposable compute environment, persist reproducible evidence to GitHub, leave the PR DRAFT, release the claim, and stop before B.
+One R2 correction worker: implement the packet, reproduce both identity attacks through real core validation, run clean-checkout proof, preserve historical evidence, publish exact heads/results, release claim, STOP. Then one independent exact-head rereviewer; only CT disposition of accepted evidence may activate B.
 
-After completion, CT dispatches one independent read-only exact-head reviewer. Checkpoint B and C remain held until A is accepted.
-
-## Operating limits
-
-GitHub is the durable bus between one-shot GPT/Claude agents. Do not rely on chat cache or persistent worker filesystem state.
-
-No user/private media, transcripts, machine-specific private paths, or private project links in this public repository.
-
-No GitHub Actions dispatch/rerun for current work. Use local/cloud proof, applicable `[skip ci]` commits, and verify no workflow run started. Skipped CI is not green CI.
-
-No paid/provider calls, model downloads, OCR/Groq/Tauri/Drive/MCP scope in checkpoint A. No implementation merge or release without explicit user authorization.
-
-Normal engineering choices belong to bounded evidence review. Product/privacy/cost/release/major UX changes go to the user.
+**B/C and BS-002 onward remain HELD.** No detector/packet/READY/OCR/provider/UI/Drive/MCP work. No user/private media, transcripts, paths, links or credentials in this public repo. No Actions dispatch/rerun or workflow/settings workaround. Use local proof, applicable [skip ci], and verify exact-head run absence. Skipped CI is not green CI. No merge/release without explicit user authorization.
