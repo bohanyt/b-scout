@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools==82.0.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bscout"
+version = "0.1.0a1"
+description = "B-Scout Checkpoint A temporal oracle and native-frame ledger"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["av==18.1.0", "numpy==2.2.6"]
+
+[project.scripts]
+bscout = "bscout.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+bscout = ["corpora/corpus-v1/*.json"]

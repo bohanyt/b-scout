@@ -20,3 +20,7 @@ B-Scout is a local-first footage indexing project focused on short-lived visual 
 Preserve source timing and short-lived evidence; keep source media read-only; separate observations from OCR/editorial interpretation; preserve repeated occurrences; keep raw user media private.
 
 Independent repository, not a fork. Repository material is MIT-licensed; third-party software/model/media licensing remains separate.
+
+## Checkpoint A harness
+
+The implementation branch provides a synthetic temporal oracle and native-frame ledger for independent review. See [Checkpoint A commands and proof](docs/BS001_A.md). This does not establish production detection or full BS-001 acceptance.
