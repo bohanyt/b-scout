@@ -1,0 +1,13 @@
+test_actual_unicode_spaced_lossless_path_and_exact_recovery (test_temporal.TemporalTests.test_actual_unicode_spaced_lossless_path_and_exact_recovery) ... ok
+test_cli_rejects_r1_without_writing_recovery_output (test_temporal.TemporalTests.test_cli_rejects_r1_without_writing_recovery_output) ... ok
+test_recovery_api_cannot_bypass_validation_with_header_only (test_temporal.TemporalTests.test_recovery_api_cannot_bypass_validation_with_header_only) ... ok
+test_recovery_incomplete_or_unrelated_ledger_rejected (test_temporal.TemporalTests.test_recovery_incomplete_or_unrelated_ledger_rejected) ... ok
+test_recovery_recomputes_safety_instead_of_trusting_declared_status (test_temporal.TemporalTests.test_recovery_recomputes_safety_instead_of_trusting_declared_status) ... ok
+test_recovery_rejects_nearby_timing_anomalies_in_entire_ledger (test_temporal.TemporalTests.test_recovery_rejects_nearby_timing_anomalies_in_entire_ledger) ... ok
+test_recovery_rejects_unsafe_timing_emitted_after_seek (test_temporal.TemporalTests.test_recovery_rejects_unsafe_timing_emitted_after_seek) ... ok
+test_recovery_supported_seek_missing_target_and_native_digest (test_temporal.TemporalTests.test_recovery_supported_seek_missing_target_and_native_digest) ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.467s
+
+OK

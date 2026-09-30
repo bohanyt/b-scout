@@ -1,5 +1,7 @@
 # BS-001 Checkpoint A local proof — 2026-09-30
 
+**Historical pre-fix evidence.** These reports belong to tested head `2590b6e8ab40d293da019543d2f4e3aa7cdc63cd`, published/reviewed at `fc42cdfd9364927d98020a817436fce6ba8ce21b`. Independent review found R1 despite the stock 62-pass proof. Reports in this directory remain unchanged; use the [corrected R1 proof](../BS-001-A-R1/README.md) for current recovery evidence. This historical result is not Checkpoint-A acceptance.
+
 Role: bounded implementation lead, not Control Tower or independent acceptance reviewer. State: **IMPLEMENTED / TESTED / RUNTIME_CONFIRMED for the specified synthetic Checkpoint-A scope**. Independent acceptance remains pending. B/C are HELD.
 
 ## Identity and acquisition
