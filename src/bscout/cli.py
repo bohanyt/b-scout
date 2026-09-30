@@ -68,7 +68,7 @@ def main(argv=None):
                         target = row
             if header is None or target is None:
                 raise ValueError("Known target not found in ledger")
-            frame, result = recover(args.source, target, header, keys)
+            frame, result = recover(args.source, target, header, keys, ledger_path=args.ledger)
             args.out.parent.mkdir(parents=True, exist_ok=True)
             with args.out.open("xb") as sink:
                 for plane in native_planes(frame)[0]:

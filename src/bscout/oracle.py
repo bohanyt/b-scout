@@ -137,14 +137,14 @@ def verify_fixture(spec, fixture, media, ledger_path):
     recovery = []
     if not no_timing:
         for i in sorted(targets):
-            _, proof = recover(source, frame_rows[i], header, keys)
+            _, proof = recover(source, frame_rows[i], header, keys, ledger_path=ledger_path)
             recovery.append({"generator_id": seen[i], **proof})
         # Prove absent canonical known targets fail, never select a neighbor.
         missing = dict(frame_rows[-1])
         missing["pts"] += 100000000
         missing["identity"] = [before, header["selected_stream_index"], missing["pts"], 0]
         try:
-            recover(source, missing, header, keys)
+            recover(source, missing, header, keys, ledger_path=ledger_path)
         except ValueError as exc:
             if "never emitted" not in str(exc):
                 raise

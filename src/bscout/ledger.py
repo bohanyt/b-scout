@@ -162,6 +162,9 @@ def ledger(source: Path, output: Path, stream_index=None):
                        "last_frame_duration_status": "decoder_reported" if last_duration and last_duration > 0 else "unknown",
                        "elapsed_seconds": time.perf_counter()-start, "peak_rss": peak_rss(),
                        "source_unchanged": unchanged, "output_bytes_before_trailer": sink.tell()}
+            trailer["exact_recovery"] = {
+                "status": "supported" if status == "complete" else "unsupported",
+                "rule": "complete ledger with known, unique, strictly increasing PTS only"}
             # Fixed point allows the trailer to report total UTF-8 bytes, including itself.
             trailer["output_bytes"] = sink.tell()
             while True:
@@ -181,7 +184,52 @@ def rows(path):
             yield json.loads(line)
 
 
-def recover(source: Path, target: dict, header: dict, keys: list[int]):
+def recovery_keys(ledger_path, header):
+    """Validate the entire ledger; never trust a header/local counter as safety proof.
+
+    v1 ledgers remain readable. The durable trailer state is advisory: raw rows,
+    completion, and identities are checked again, including later anomalies.
+    """
+    if ledger_path is None:
+        raise ValueError("Exact recovery requires a complete validated ledger")
+    count, previous, found_header, trailer = 0, None, False, None
+    keys = []
+    for row in rows(ledger_path):
+        kind = row.get("type")
+        if trailer is not None:
+            raise ValueError("Recovery ledger has records after trailer")
+        if kind == "header" and not found_header and count == 0:
+            if row != header or row.get("version") != VERSION:
+                raise ValueError("Recovery ledger header mismatch")
+            found_header = True
+        elif kind == "frame" and found_header:
+            pts = row.get("pts")
+            if pts is None or (previous is not None and pts <= previous):
+                raise ValueError("Exact recovery unsupported: missing/duplicate/non-monotonic PTS")
+            if (row.get("ordinal") != count or row.get("same_pts_ordinal") != 0
+                    or row.get("timing_flags") != []
+                    or row.get("identity") != [header["source_sha256"],
+                        header["selected_stream_index"], pts, 0]
+                    or row.get("time_base") != header["first_presented_time_base"]
+                    or (count == 0 and pts != header["first_presented_pts"])):
+                raise ValueError("Recovery ledger frame identity/timing mismatch")
+            if row["key_frame"]:
+                keys.append(pts)
+            previous, count = pts, count + 1
+        elif kind == "trailer" and found_header:
+            trailer = row
+        else:
+            raise ValueError("Invalid recovery ledger record order")
+    if (not count or trailer is None or trailer.get("version") != VERSION
+            or trailer.get("status") != "complete"
+            or trailer.get("presented_frames") != count
+            or trailer.get("timing") != {"missing": 0, "duplicate": 0, "non_monotonic": 0}
+            or trailer.get("errors") != [] or trailer.get("source_unchanged") is not True):
+        raise ValueError("Exact recovery unsupported: incomplete or unsafe ledger")
+    return keys
+
+
+def recover(source: Path, target: dict, header: dict, keys: list[int], *, ledger_path=None):
     """Actual backward keyframe seek, then presentation decode to exact identity."""
     import av
     source = Path(source)
@@ -193,6 +241,11 @@ def recover(source: Path, target: dict, header: dict, keys: list[int]):
     if identity != [header["source_sha256"], header["selected_stream_index"],
                     target["pts"], target["same_pts_ordinal"]]:
         raise ValueError("Canonical target identity mismatch")
+    validated_keys = recovery_keys(ledger_path, header)
+    if keys != validated_keys:
+        raise ValueError("Recovery keyframes differ from validated ledger")
+    if target["same_pts_ordinal"] != 0:
+        raise ValueError("Exact recovery unsupported: duplicate occurrence")
     # Seek strictly earlier than target and earlier than its preceding keyframe,
     # avoiding DTS-index/B-frame leading presentation traps and duplicate cuts.
     earlier = [p for p in keys if p < target["pts"]]
@@ -203,7 +256,7 @@ def recover(source: Path, target: dict, header: dict, keys: list[int]):
         offset = (Fraction(anchor-1) * target_tb) / stream.time_base
         seek_pts = offset.numerator // offset.denominator
         container.seek(seek_pts, stream=stream, backward=True, any_frame=False)
-        n, decoded = 0, 0
+        decoded, previous = 0, None
         first_emitted = None
         for frame in presented(container, stream):
             decoded += 1
@@ -211,13 +264,14 @@ def recover(source: Path, target: dict, header: dict, keys: list[int]):
                 first_emitted = frame.pts
             if frame.time_base != target_tb:
                 raise ValueError("Recovery time base differs from ledger")
+            if frame.pts is None or (previous is not None and frame.pts <= previous):
+                raise ValueError("Exact recovery unsupported: unsafe seek-path timing")
+            previous = frame.pts
             if frame.pts == target["pts"]:
-                if n == target["same_pts_ordinal"]:
-                    actual, _ = native_digest(frame)
-                    if actual != target["native_sha256"]:
-                        raise ValueError("Seek-path native digest mismatch")
-                    return frame, {"identity": identity, "sha256": actual,
-                                   "seek_offset": seek_pts, "first_emitted_pts": first_emitted,
-                                   "decoded_forward": decoded, "backward": True, "any_frame": False}
-                n += 1
+                actual, _ = native_digest(frame)
+                if actual != target["native_sha256"]:
+                    raise ValueError("Seek-path native digest mismatch")
+                return frame, {"identity": identity, "sha256": actual,
+                               "seek_offset": seek_pts, "first_emitted_pts": first_emitted,
+                               "decoded_forward": decoded, "backward": True, "any_frame": False}
         raise ValueError("Exact known target identity never emitted after seek")
