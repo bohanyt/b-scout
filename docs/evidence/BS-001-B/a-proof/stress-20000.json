@@ -1,0 +1,1 @@
+{"elapsed_seconds":0.7958084999991115,"frames":20000,"method":"separate process; real PyAV native frames; streamed rows; disk-backed PTS; no list","output_bytes":16386670,"peak_rss":{"bytes":44744704,"method":"Windows GetProcessMemoryInfo PeakWorkingSetSize; process lifetime incl native allocations"}}
