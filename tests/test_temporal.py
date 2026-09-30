@@ -18,7 +18,7 @@ if HAS_RUNTIME:
     import numpy as np
     from bscout.corpus import load_corpus, make_frame, planes_for, encode
     from bscout.frames import native_digest, native_planes, read_id
-    from bscout.ledger import Timing, frame_row, ledger, rows, recover
+    from bscout.ledger import Timing, frame_row, ledger, rows, recover, presented
     from bscout.oracle import nearest, timing_check, survival
 
 
@@ -50,6 +50,26 @@ class ContractTests(unittest.TestCase):
 
 @unittest.skipUnless(HAS_RUNTIME, "Checkpoint A media tests require pinned av/numpy; run proof entrypoint")
 class TemporalTests(unittest.TestCase):
+    def test_failure_ledger_does_not_expose_source_path(self):
+        with tempfile.TemporaryDirectory(prefix="bscout private diagnostic ") as d:
+            source = Path(d)/"nonmedia.mp4"
+            source.write_bytes(b"synthetic unsupported input")
+            output = Path(d)/"diagnostic.jsonl"
+            result = ledger(source, output)
+            self.assertEqual(result["status"], "failed")
+            self.assertTrue(result["source_unchanged"])
+            self.assertNotIn(str(source), output.read_text(encoding="utf-8"))
+            self.assertIn("[source]", " ".join(result["errors"]))
+
+    def test_concealed_corruption_is_rejected(self):
+        from types import SimpleNamespace
+        for packet_bad, frame_bad in ((True, False), (False, True)):
+            packet = SimpleNamespace(is_corrupt=packet_bad,
+                                     decode=lambda: [SimpleNamespace(is_corrupt=frame_bad)])
+            container = SimpleNamespace(demux=lambda stream: [packet])
+            with self.assertRaisesRegex(ValueError, "corrupt"):
+                list(presented(container, None))
+
     def test_frozen_corpus_and_splits(self):
         spec, truth, frozen = load_corpus()
         self.assertEqual(len(truth["fixtures"]), 16)
