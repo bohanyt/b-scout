@@ -110,8 +110,10 @@ def worker(work):
                            "private footage and real 1440p60 throughput", "Python versions other than recorded runtime",
                            "production detector/packet, cancellation/budgets, B/C and later roadmap"],
               "elapsed_seconds": time.perf_counter()-started, "peak_rss": peak_rss(),
-              "output_bytes_excluding_venv_wheels_report": sum(p.stat().st_size for sub in
+              "output_bytes": {"media_and_ledgers": sum(p.stat().st_size for sub in
                   ("media", "ledgers") for p in (work/sub).rglob("*") if p.is_file()),
+                  "all_proof_artifacts_excluding_venv_wheels_result": sum(p.stat().st_size for p in work.rglob("*")
+                      if p.is_file() and p.relative_to(work).parts[0] not in ("venv", "wheels"))},
               "source_unchanged": all(f.get("source_unchanged",False) for f in oracle["fixtures"])
               and all(f["diagnostic"]["source_unchanged"] for f in errors)}
     write_json(work/"result.json", result)
@@ -143,9 +145,9 @@ def main():
     run([str(python), "-m", "pip", "download", "--only-binary=:all:", "--no-cache-dir",
          "--index-url", "https://pypi.org/simple", "--dest", str(work/"wheels"),
          "-r", str(ROOT/"requirements-proof.txt")])
-    run([str(python), "-m", "pip", "install", "--no-index", "--find-links", str(work/"wheels"),
+    run([str(python), "-m", "pip", "install", "--no-cache-dir", "--no-index", "--find-links", str(work/"wheels"),
          "-r", str(ROOT/"requirements-proof.txt")])
-    run([str(python), "-m", "pip", "install", "--no-deps", "--no-build-isolation", str(ROOT)])
+    run([str(python), "-m", "pip", "install", "--no-cache-dir", "--no-index", "--no-deps", "--no-build-isolation", str(ROOT)])
     # Prove the installed wheel works away from source; corpus data must ship.
     package = subprocess.run([str(python), "-c", "from bscout.corpus import load_corpus; load_corpus(); from bscout.cli import main; main(['--version'])"],
                              check=True, cwd=work, capture_output=True, text=True)

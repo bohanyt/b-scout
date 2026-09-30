@@ -142,7 +142,9 @@ def ledger(source: Path, output: Path, stream_index=None):
                         errors.append("Presented-frame count differs from container claimed count")
                     status = "complete" if not errors and not any(timing.counts.values()) else "diagnostic"
             except Exception as exc:
-                errors.append(f"{type(exc).__name__}: {exc}")
+                # Diagnostic artifacts must not expose a private input path.
+                message = str(exc).replace(str(source), "[source]")
+                errors.append(f"{type(exc).__name__}: {message}")
                 status = "partial" if count else "failed"
             unchanged = sha256(source) == before
             if not unchanged:
