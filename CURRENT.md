@@ -1,28 +1,33 @@
 # Current state
 
 Updated: 2026-09-30. State: **DESIGN_READY / IMPLEMENTATION_NOT_STARTED**.
-Current evidence gate: **BS-001 checkpoint A — PREBUILD_REVIEWED / READY FOR REDISPATCH**.
+Current evidence gate: **BS-001 checkpoint A — PREBUILD_REVIEWED / REDISPATCHED / AWAITING WORKER CLAIM**.
 
 ## Canonical pointers and authority
 
-- Primary Control Tower: **BSCOUT-CT-20260924-A**, explicitly authorized by the user; transfer record: issue #1 comment `5805761944`.
+- Active successor Control Tower: **BSCOUT-CT-20260930-B**, explicitly authorized by the user; transfer record: issue #1 comment `5902177064`.
+- Previous CT transfer/history remains in issue #1; V5 is the handoff this successor consumed.
 - User retains product, privacy/cost, major UX, implementation-merge/release, and final-acceptance authority.
 - [CT role](docs/control-tower/ROLE.md), [protocol](docs/control-tower/PROTOCOL.md), and [coordination issue #1](https://github.com/bohanyt/b-scout/issues/1).
-- Current handoff: [BSCOUT-CT-HANDOFF-20260930-V5](docs/handoffs/2026-09-30-control-tower-v5.md). Earlier handoffs are historical snapshots.
+- Current handoff snapshot: [BSCOUT-CT-HANDOFF-20260930-V5](docs/handoffs/2026-09-30-control-tower-v5.md). Earlier handoffs are historical snapshots.
 - Active task: [BS-001 / issue #2](https://github.com/bohanyt/b-scout/issues/2); [checkpoint dispatch/review packet](docs/tasks/BS-001-native-frame-baseline.md).
 - Independent pre-build review: issue #2 comment `5806205721`, key `BSCOUT-PREBUILD-OPUS-20260924-V1`.
 - CT incorporation of that review: issue #2 comment `5806347830`.
+- Stale-claim reconciliation: issue #2 comment `5902132762`.
+- Successor CT redispatch packet: issue #2 comment `5902191123`.
 
 ## Reconciled repository state
 
-Fresh check on 2026-09-30:
+Fresh check on 2026-09-30 before this successor-state sync:
 
-- `main` = `1f9c53b3bf205d80628244bd7ce715535a99d5ef` before this V5 publication.
-- Branch `agent/bs-001-native-frame-baseline` exists but points to the exact same commit as `main`.
-- No pull requests exist.
-- Checkpoint-A worker claim comment `5806413667` exists, but there is no implementation commit, no PR, no completion/handoff comment, and no exact-head runtime evidence after that claim.
-- Therefore the claim is treated by CT as **stale/unfulfilled**, not as active implementation ownership.
-- Keep/reuse the existing branch name for the next worker; do not create a competing lineage.
+- `main` = `5e2bcba337f5e26b0ace7b4fbf8ee6c8c59cd17d`.
+- Branch `agent/bs-001-native-frame-baseline` = `1f9c53b3bf205d80628244bd7ce715535a99d5ef`, 0 ahead / 1 behind that main.
+- No pull requests existed.
+- Previous checkpoint-A worker claim `5806413667` remains **STALE / UNFULFILLED / SUPERSEDED FOR OWNERSHIP PURPOSES**.
+- No implementation commit, no DRAFT PR, no completion/handoff comment and no runtime evidence exists for A.
+- The successor CT posted one bounded checkpoint-A redispatch packet, but **no worker claim is active yet**.
+
+The existing branch remains the required single BS-001 implementation lineage. The next worker must fresh-check current main and bring that branch forward before source work.
 
 ## What exists
 
@@ -38,11 +43,11 @@ No BS-001 checkpoint has passed runtime review.
 
 ## Next action
 
-Redispatch **one** checkpoint-A implementation worker using the existing branch `agent/bs-001-native-frame-baseline` and one DRAFT PR.
+Exactly one checkpoint-A implementation worker should claim issue #2 under redispatch comment `5902191123`.
 
-The worker must fresh-read issue #2, V5, and the task packet; post a new claim that explicitly supersedes stale claim `5806413667`; implement A only; run proof in its own temporary compute environment; persist reproducible source/tests/specs/annotations/pins/commands/results to GitHub; leave the PR DRAFT; then release the claim.
+The worker must explicitly supersede stale claim `5806413667`, reuse `agent/bs-001-native-frame-baseline`, bring it to current main, create one DRAFT PR, implement A only, run proof in its own disposable compute environment, persist reproducible evidence to GitHub, leave the PR DRAFT, release the claim, and stop before B.
 
-Checkpoint B and C remain held until CT exact-head review accepts A.
+After completion, CT dispatches one independent read-only exact-head reviewer. Checkpoint B and C remain held until A is accepted.
 
 ## Operating limits
 
