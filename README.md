@@ -24,3 +24,7 @@ Independent repository, not a fork. Repository material is MIT-licensed; third-p
 ## Checkpoint A harness
 
 The implementation branch provides a synthetic temporal oracle and native-frame ledger for independent review. See [Checkpoint A commands and proof](docs/BS001_A.md). This does not establish production detection or full BS-001 acceptance.
+
+## Checkpoint B baseline
+
+The implementation branch also provides every-frame native tile diagnostics and exact retained evidence. See [Checkpoint B commands and proof](docs/BS001_B.md). Independent review and Control Tower disposition govern acceptance; Checkpoint C remains held.

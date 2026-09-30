@@ -281,7 +281,7 @@ def _trailer_semantics(trailer):
     return {k: v for k, v in trailer.items() if k not in _TELEMETRY and k != "projection_sha256"}
 
 
-def validate_traversal(source: Path, config=DecodeConfig(), ledger_out=None):
+def validate_traversal(source: Path, config=DecodeConfig(), ledger_out=None, *, max_storage_bytes=None):
     """One complete actual decode creates process-local traversal authority.
 
     Diagnostic/failed traversals can produce ledgers, but never recover frames.
@@ -291,6 +291,8 @@ def validate_traversal(source: Path, config=DecodeConfig(), ledger_out=None):
     import av
     if type(config) is not DecodeConfig:
         raise ValueError("Expected immutable DecodeConfig")
+    if max_storage_bytes is not None and (type(max_storage_bytes) is not int or max_storage_bytes <= 0):
+        raise ValueError("Invalid traversal storage budget")
     source = Path(source).resolve()
     output = None if ledger_out is None else Path(ledger_out)
     if output is not None:
@@ -337,6 +339,16 @@ def validate_traversal(source: Path, config=DecodeConfig(), ledger_out=None):
                                       canonical(row).decode("utf-8")))
                     emit(row)
                     count += 1
+                    if max_storage_bytes is not None:
+                        # Include dirty SQLite pages, journals, PTS counters and
+                        # streamed ledger. Stop explicitly; never mint complete
+                        # authority from the retained prefix after exhaustion.
+                        storage = sum(p.stat().st_size for directory in (Path(state.temp.name), Path(timing.temp.name))
+                                      for p in directory.iterdir() if p.is_file())
+                        storage += state.db.execute("PRAGMA page_count").fetchone()[0] * state.db.execute("PRAGMA page_size").fetchone()[0]
+                        storage += sink.tell() if sink is not None else 0
+                        if storage > max_storage_bytes:
+                            raise ValueError("Traversal storage budget exhausted; incomplete validation")
                     last_duration = getattr(frame, "duration", None)
                     frame = next(iterator, None)
                 # presented consumes demux EOF and its decoder flush packets.

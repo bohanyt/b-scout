@@ -1,4 +1,4 @@
-"""Bounded Checkpoint-A public CLI."""
+"""Bounded Checkpoint-A oracle and Checkpoint-B regional diagnostics CLI."""
 import argparse
 import json
 import os
@@ -10,7 +10,7 @@ from .common import canonical, write_json
 
 
 def parser():
-    p = argparse.ArgumentParser(description="B-Scout Checkpoint A temporal oracle (synthetic proof)")
+    p = argparse.ArgumentParser(description="B-Scout native temporal oracle and regional CV diagnostics")
     p.add_argument("--version", action="version", version=__version__)
     sub = p.add_subparsers(dest="command", required=True)
     f = sub.add_parser("fixtures")
@@ -37,6 +37,11 @@ def parser():
     r.add_argument("--same-pts-ordinal", type=int, default=0)
     r.add_argument("--stream-index", type=int)
     r.add_argument("--out", type=Path, required=True, help="Padding-free native plane bytes")
+    b = sub.add_parser("candidates", help="B regional CV and retained source-bound evidence; no production packet")
+    b.add_argument("source", type=Path)
+    b.add_argument("--out", type=Path, required=True)
+    b.add_argument("--config", type=Path)
+    b.add_argument("--stream-index", type=int)
     return p
 
 
@@ -54,6 +59,11 @@ def main(argv=None):
             from .oracle import verify
             result = verify(args.media, args.out, args.corpus, args.split)
             write_json(args.out / "oracle.json", result)
+        elif args.command == "candidates":
+            from .regional import RegionalConfig, load_config, scan
+            from .ledger import DecodeConfig
+            config = load_config(args.config) if args.config else RegionalConfig()
+            result = scan(args.source,args.out,config,DecodeConfig(stream_index=args.stream_index))
         else:
             from .ledger import DecodeConfig, recover, validate_traversal, verify_source
             from .frames import native_planes
@@ -89,6 +99,8 @@ def main(argv=None):
             return 0 if result["status"] == "complete" else 2
         if args.command == "oracle":
             return 0 if all(f["status"] == "pass" for f in result["fixtures"]) else 2
+        if args.command == "candidates":
+            return 0 if result["status"] == "complete" else 2
         return 0
     except Exception as exc:
         message = str(exc)
