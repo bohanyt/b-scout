@@ -59,6 +59,7 @@ class TemporalTests(unittest.TestCase):
             self.assertEqual(result["status"], "failed")
             self.assertTrue(result["source_unchanged"])
             self.assertNotIn(str(source), output.read_text(encoding="utf-8"))
+            self.assertNotIn("bscout private diagnostic", output.read_text(encoding="utf-8"))
             self.assertIn("[source]", " ".join(result["errors"]))
 
     def test_concealed_corruption_is_rejected(self):

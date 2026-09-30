@@ -143,7 +143,12 @@ def ledger(source: Path, output: Path, stream_index=None):
                     status = "complete" if not errors and not any(timing.counts.values()) else "diagnostic"
             except Exception as exc:
                 # Diagnostic artifacts must not expose a private input path.
-                message = str(exc).replace(str(source), "[source]")
+                message = str(exc)
+                # Native errors often embed repr(path), with doubled Windows
+                # backslashes. Handle both repr and literal/resolved spellings.
+                for private in (str(source), str(source.resolve())):
+                    message = message.replace(repr(private), "'[source]'")
+                    message = message.replace(private, "[source]")
                 errors.append(f"{type(exc).__name__}: {message}")
                 status = "partial" if count else "failed"
             unchanged = sha256(source) == before
