@@ -2,29 +2,21 @@
 
 **Turn raw footage into timestamped evidence for editors and AI agents.**
 
-B-Scout is a local-first footage indexing project. Its focus is visual context when speech is sparse: brief tutorial popups, on-screen text, menu changes, and other moments that ordinary frame sampling can miss. Gameplay is the first demanding use case, not the product boundary.
+B-Scout is a local-first footage indexing project focused on short-lived visual context when speech is sparse.
 
-> **Status: design / contract bootstrap; first implementation gate pre-build-reviewed.** No working video analyzer, desktop installer, Groq integration, or MCP server is shipped yet. High recall is an evaluation goal, not a guarantee that nothing is missed.
-
-## Intended experience
-
-Drop a local video into a desktop window, choose an output folder, and scan without uploading or duplicating the raw source. Review an event timeline with evidence frames, text, and optional speech. Export a portable packet for an editor or AI agent.
+> **Status:** design/contracts complete; BS-001 checkpoint A is pre-build-reviewed and ready for redispatch. No working analyzer is shipped yet.
 
 ## Start here
 
-- [CURRENT.md](CURRENT.md): actual state and next task.
+- [CURRENT.md](CURRENT.md): actual current state.
 - [AGENTS.md](AGENTS.md): mandatory agent entry point.
-- [Documentation index](docs/README.md): architecture, UX, packet format, and acceptance gates.
-- [Control Tower](https://github.com/bohanyt/b-scout/issues/1): coordination and authority.
-- [First implementation task](https://github.com/bohanyt/b-scout/issues/2): BS-001, checkpoint A.
-- [Current handoff](docs/handoffs/2026-09-24-control-tower-v4.md): continuity snapshot.
-
-## Available now
-
-Design documents, draft JSON Schemas, illustrative records, bootstrap checks, a bootstrap-readiness audit and a pre-build-reviewed checkpoint-A implementation packet. The planned production `bscout analyze` command does not exist yet.
+- [Documentation index](docs/README.md).
+- [Control Tower issue #1](https://github.com/bohanyt/b-scout/issues/1).
+- [BS-001 issue #2](https://github.com/bohanyt/b-scout/issues/2).
+- [Current CT handoff V5](docs/handoffs/2026-09-30-control-tower-v5.md).
 
 ## Principles
 
-Preserve source timing and short-lived evidence; deduplicate storage without erasing repeated occurrences; distinguish measured observations from OCR guesses and editorial judgments; keep raw footage private and unmodified. No transcript-only shortcut, hard frame cap, or one-second summary may silently discard candidate evidence.
+Preserve source timing and short-lived evidence; keep source media read-only; separate observations from OCR/editorial interpretation; preserve repeated occurrences; keep raw user media private.
 
-Independent repository, not a fork. [References and reuse policy](docs/REFERENCES.md) identify architectural influences and what still needs inspection before code reuse. Original repository material is under [MIT](LICENSE); this does not license third-party software, model weights, or user media.
+Independent repository, not a fork. Repository material is MIT-licensed; third-party software/model/media licensing remains separate.

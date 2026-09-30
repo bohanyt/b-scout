@@ -1,55 +1,57 @@
 # Current state
 
-Updated: 2026-09-24. State: **DESIGN_READY / IMPLEMENTATION_NOT_STARTED**.
-Current evidence gate: **BS-001 checkpoint A — PREBUILD_REVIEWED / READY / UNCLAIMED**.
+Updated: 2026-09-30. State: **DESIGN_READY / IMPLEMENTATION_NOT_STARTED**.
+Current evidence gate: **BS-001 checkpoint A — PREBUILD_REVIEWED / READY FOR REDISPATCH**.
 
 ## Canonical pointers and authority
 
-- Primary Control Tower: **BSCOUT-CT-20260924-A**, explicitly authorized by the user; [transfer record](https://github.com/bohanyt/b-scout/issues/1#issuecomment-5805761944).
+- Primary Control Tower: **BSCOUT-CT-20260924-A**, explicitly authorized by the user; transfer record: issue #1 comment `5805761944`.
 - User retains product, privacy/cost, major UX, implementation-merge/release, and final-acceptance authority.
 - [CT role](docs/control-tower/ROLE.md), [protocol](docs/control-tower/PROTOCOL.md), and [coordination issue #1](https://github.com/bohanyt/b-scout/issues/1).
-- Current handoff: [BSCOUT-CT-HANDOFF-20260924-V4](docs/handoffs/2026-09-24-control-tower-v4.md). Earlier handoffs are historical snapshots.
+- Current handoff: [BSCOUT-CT-HANDOFF-20260930-V5](docs/handoffs/2026-09-30-control-tower-v5.md). Earlier handoffs are historical snapshots.
 - Active task: [BS-001 / issue #2](https://github.com/bohanyt/b-scout/issues/2); [checkpoint dispatch/review packet](docs/tasks/BS-001-native-frame-baseline.md).
-- Independent pre-build review: Issue #2 comment [5806205721](https://github.com/bohanyt/b-scout/issues/2#issuecomment-5806205721), key `BSCOUT-PREBUILD-OPUS-20260924-V1`.
-- Bootstrap-readiness audit: [2026-09-24-bootstrap-readiness.md](docs/audits/2026-09-24-bootstrap-readiness.md).
+- Independent pre-build review: issue #2 comment `5806205721`, key `BSCOUT-PREBUILD-OPUS-20260924-V1`.
+- CT incorporation of that review: issue #2 comment `5806347830`.
 
-## What exists and what was tested
+## Reconciled repository state
 
-Product/architecture/privacy/acceptance/roadmap documentation, draft packet schemas and illustrative records, bootstrap checks, governance, and bounded task packets exist. The CT previously reran **13 bootstrap unit tests successfully** using six Git-blob-verified files from the audited main revision in Linux / Python 3.13.5 / jsonschema 4.26.0. Two schema definitions and two examples also validated.
+Fresh check on 2026-09-30:
 
-The independent pre-build reviewer performed a GitHub-only read at `e1b2065722f2679dbf29592c97c91d6629b7ef4b`, executed no code, and returned **NEEDS_PREBUILD_CORRECTION with no blocker**: architecture and A→B→C sequencing are sound, but checkpoint A needed stronger oracle/timing/reproducibility requirements. CT accepted those engineering corrections into the active task packet.
+- `main` = `1f9c53b3bf205d80628244bd7ce715535a99d5ef` before this V5 publication.
+- Branch `agent/bs-001-native-frame-baseline` exists but points to the exact same commit as `main`.
+- No pull requests exist.
+- Checkpoint-A worker claim comment `5806413667` exists, but there is no implementation commit, no PR, no completion/handoff comment, and no exact-head runtime evidence after that claim.
+- Therefore the claim is treated by CT as **stale/unfulfilled**, not as active implementation ownership.
+- Keep/reuse the existing branch name for the next worker; do not create a competing lineage.
+
+## What exists
+
+Bootstrap/governance/product/architecture/privacy/acceptance/roadmap documentation, draft packet schemas, illustrative records, bootstrap checks, the bootstrap-readiness audit, and the pre-build-reviewed checkpoint-A task packet.
+
+The pre-build review found no architecture blocker. A→B→C remains the approved engineering order. Checkpoint A has the stronger oracle/timing/seek/reproducibility requirements already incorporated in the task packet.
 
 ## What does not exist
 
-No video scanner, detector, OCR/Groq adapter, runtime synthetic-video corpus, desktop UI, Drive exporter, MCP server, or validated real-video recall/speed. No BS-001 runtime checkpoint has passed. A reviewed plan is not implementation.
+No implementation of the runtime synthetic corpus, decoder/ledger engine, oracle verifier, regional detector, packet runtime, OCR/Groq adapter, desktop UI, Drive exporter, MCP server, or validated real-video recall/speed.
 
-## Checkpoint A — current dispatch
+No BS-001 checkpoint has passed runtime review.
 
-Implementation owner: **none**. Branch / PR: **none** at this snapshot. A published packet is not a running worker.
+## Next action
 
-Checkpoint A now requires:
+Redispatch **one** checkpoint-A implementation worker using the existing branch `agent/bs-001-native-frame-baseline` and one DRAFT PR.
 
-- independent generator truth with a per-frame identity channel plus a lossless truth variant;
-- committed/versioned corpus spec + canonical annotations + declared dev/held-out seeds;
-- native presentation-order PTS/time-base ledger, preserving container/stream/first-presented origins separately;
-- A-ledger origin default = first decoded presented-frame PTS, while raw origins remain recorded;
-- canonical frame identity using source digest + stream + PTS (+ same-PTS ordinal when needed), with ledger ordinal separately recorded;
-- primary decoded-frame digest over native planes with row padding removed; RGB-converted digests are secondary/toolchain-dependent;
-- realistic B-frame / long-GOP fixtures and exact seek-back/decode-forward re-extraction proof;
-- muxer/container rounding rules, VFR/non-zero-origin/edit-list cases and explicit unknown timing;
-- post-encode survival checks for annotated overlays;
-- reproducibility from a clean one-shot-agent checkout with generated media disposable/ignored and durable truth/evidence in GitHub.
+The worker must fresh-read issue #2, V5, and the task packet; post a new claim that explicitly supersedes stale claim `5806413667`; implement A only; run proof in its own temporary compute environment; persist reproducible source/tests/specs/annotations/pins/commands/results to GitHub; leave the PR DRAFT; then release the claim.
 
-PyAV is the current **recommended first decoder harness**, not frozen architecture. The worker must fresh-verify a compatible exact version, wheel/native dependency provenance and licensing before pinning it.
+Checkpoint B and C remain held until CT exact-head review accepts A.
 
-Checkpoint B remains held for regional-change candidates/evidence against A's frozen dev + held-out truth. B must not distort raw signal diagnostics merely to fit the draft 0.1 event schema.
+## Operating limits
 
-Checkpoint C remains held for runtime packet integrity/full Gate B. It owns P1–P6/F3 enforcement plus cross-platform packet-name/path concerns including casefold/NFC collisions and Windows reserved-name behavior. Windows execution proof remains later.
+GitHub is the durable bus between one-shot GPT/Claude agents. Do not rely on chat cache or persistent worker filesystem state.
 
-## Direction and operating limits
+No user/private media, transcripts, machine-specific private paths, or private project links in this public repository.
 
-Independent public, local-first footage scout; generic sparse-speech footage/gameplay as the first demanding use case. Preserve one-frame evidence and source timestamps. Python engine/CLI first; thin Tauri drag/drop desktop remains the intended destination.
+No GitHub Actions dispatch/rerun for current work. Use local/cloud proof, applicable `[skip ci]` commits, and verify no workflow run started. Skipped CI is not green CI.
 
-No user/private media, transcripts, machine-specific paths, or private project links in this repository. No paid/provider calls, model downloads, automatic uploads, or GitHub Actions dispatch/rerun for current work. One-shot agents run proof in their own temporary compute environments and persist reproducible source/tests/commands/results back to GitHub. Use applicable `[skip ci]` commit markers and verify no workflow run started. Skipped CI is not passing CI.
+No paid/provider calls, model downloads, OCR/Groq/Tauri/Drive/MCP scope in checkpoint A. No implementation merge or release without explicit user authorization.
 
 Normal engineering choices belong to bounded evidence review. Product/privacy/cost/release/major UX changes go to the user.
