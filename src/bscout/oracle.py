@@ -8,7 +8,7 @@ import numpy as np
 from .common import sha256
 from .corpus import load_corpus, planes_for
 from .frames import native_planes, read_id
-from .ledger import ledger, rows, select_video, presented, recover
+from .ledger import validate_traversal, compare_ledger, select_video, presented, recover
 
 
 def nearest(value: Fraction) -> int:
@@ -56,15 +56,19 @@ def survival(spec, fixture, index, frame, event):
 
 
 def verify_fixture(spec, fixture, media, ledger_path):
-    import av
     source = Path(media) / fixture["filename"]
     before = sha256(source)
-    trailer = ledger(source, ledger_path)
-    entries = list(rows(ledger_path))
-    header = next((r for r in entries if r["type"] == "header"), None)
-    frame_rows = [r for r in entries if r["type"] == "frame"]
+    with validate_traversal(source, ledger_out=ledger_path) as vt:
+        return _verify_validated(spec, fixture, source, ledger_path, before, vt)
+
+
+def _verify_validated(spec, fixture, source, ledger_path, before, vt):
+    import av
+    trailer, header = vt.trailer, vt.header
+    frame_rows = [vt.entry(i) for i in range(trailer["presented_frames"])]
     if header is None:
         raise ValueError("Fixture ledger failed to open")
+    compare_ledger(vt, ledger_path)
     no_timing = fixture["name"] == "no_timing"
     if not no_timing and trailer["status"] != "complete":
         raise ValueError(f"Fixture ledger incomplete: {trailer}")
@@ -137,16 +141,16 @@ def verify_fixture(spec, fixture, media, ledger_path):
     recovery = []
     if not no_timing:
         for i in sorted(targets):
-            _, proof = recover(source, frame_rows[i], header, keys, ledger_path=ledger_path)
+            _, proof = recover(source, vt, frame_rows[i]["identity"])
             recovery.append({"generator_id": seen[i], **proof})
         # Prove absent canonical known targets fail, never select a neighbor.
         missing = dict(frame_rows[-1])
         missing["pts"] += 100000000
         missing["identity"] = [before, header["selected_stream_index"], missing["pts"], 0]
         try:
-            recover(source, missing, header, keys, ledger_path=ledger_path)
+            recover(source, vt, missing["identity"])
         except ValueError as exc:
-            if "never emitted" not in str(exc):
+            if "absent in validated traversal" not in str(exc):
                 raise
         else:
             raise ValueError("Absent exact known target falsely recovered")
@@ -156,6 +160,7 @@ def verify_fixture(spec, fixture, media, ledger_path):
     if not unchanged:
         raise ValueError("Oracle modified source")
     return {"id": fixture["id"], "status": "pass", "frames": len(seen),
+            "validation_passes": trailer["validation_passes"],
             "mapping": "checked luma frame-ID -> frozen generator index; monotonic bijection",
             "timing": {"status": "unknown" if no_timing else "pass", "rule": spec["rounding"],
                        "exact_frames": sum(v["exact"] for v in timing_results),

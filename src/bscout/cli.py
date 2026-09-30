@@ -1,8 +1,10 @@
 """Bounded Checkpoint-A public CLI."""
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
+import tempfile
 from . import __version__
 from .common import canonical, write_json
 
@@ -33,12 +35,14 @@ def parser():
     r.add_argument("--ledger", type=Path, required=True)
     r.add_argument("--pts", type=int, required=True)
     r.add_argument("--same-pts-ordinal", type=int, default=0)
+    r.add_argument("--stream-index", type=int)
     r.add_argument("--out", type=Path, required=True, help="Padding-free native plane bytes")
     return p
 
 
 def main(argv=None):
     args = parser().parse_args(argv)
+    pending = None
     try:
         if args.command == "fixtures":
             from .corpus import generate
@@ -51,28 +55,35 @@ def main(argv=None):
             result = verify(args.media, args.out, args.corpus, args.split)
             write_json(args.out / "oracle.json", result)
         else:
-            from .ledger import recover, rows
+            from .ledger import DecodeConfig, recover, validate_traversal, verify_source
             from .frames import native_planes
             from .common import safe_output
             safe_output(args.source, args.out)
             if args.ledger.resolve() == args.out.resolve():
                 raise ValueError("Recovery output aliases ledger")
-            header, target, keys = None, None, []
-            for row in rows(args.ledger):
-                if row["type"] == "header":
-                    header = row
-                elif row["type"] == "frame":
-                    if row["key_frame"] and row["pts"] is not None:
-                        keys.append(row["pts"])
-                    if row["pts"] == args.pts and row["same_pts_ordinal"] == args.same_pts_ordinal:
-                        target = row
-            if header is None or target is None:
-                raise ValueError("Known target not found in ledger")
-            frame, result = recover(args.source, target, header, keys, ledger_path=args.ledger)
-            args.out.parent.mkdir(parents=True, exist_ok=True)
-            with args.out.open("xb") as sink:
-                for plane in native_planes(frame)[0]:
-                    sink.write(plane.tobytes())
+            published = False
+            try:
+                with validate_traversal(args.source, DecodeConfig(stream_index=args.stream_index)) as vt:
+                    frame, result = recover(args.source, vt, vt.identity(args.pts, args.same_pts_ordinal),
+                                            ledger_path=args.ledger)
+                    args.out.parent.mkdir(parents=True, exist_ok=True)
+                    with tempfile.NamedTemporaryFile(dir=args.out.parent, prefix=".bscout-recovery-",
+                                                     delete=False) as sink:
+                        pending = Path(sink.name)
+                        for plane in native_planes(frame)[0]:
+                            sink.write(plane.tobytes())
+                    verify_source(vt, args.source)
+                # Finish traversal cleanup before exclusive final publication.
+                os.link(pending, args.out)
+                published = True
+            finally:
+                if pending is not None:
+                    try:
+                        pending.unlink(missing_ok=True)
+                    except Exception:
+                        if published:
+                            args.out.unlink()  # only the destination just created by us
+                        raise
         print(canonical(result).decode(), end="")
         if args.command == "ledger":
             return 0 if result["status"] == "complete" else 2
@@ -80,5 +91,12 @@ def main(argv=None):
             return 0 if all(f["status"] == "pass" for f in result["fixtures"]) else 2
         return 0
     except Exception as exc:
-        print(json.dumps({"status": "failed", "error": f"{type(exc).__name__}: {exc}"}), file=sys.stderr)
+        message = str(exc)
+        paths = [getattr(args, key, None) for key in ("source", "ledger", "out", "media")]
+        paths.append(pending)
+        for path in paths:
+            if path is not None:
+                for private in (str(path), str(path.resolve())):
+                    message = message.replace(repr(private), "'[local-file]'").replace(private, "[local-file]")
+        print(json.dumps({"status": "failed", "error": f"{type(exc).__name__}: {message}"}), file=sys.stderr)
         return 2

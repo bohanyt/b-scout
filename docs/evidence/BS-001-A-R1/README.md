@@ -1,5 +1,7 @@
 # BS-001 Checkpoint A — R1 correction proof — 2026-09-30
 
+> Historical R1 evidence. Independent rereview [5903733062](https://github.com/bohanyt/b-scout/issues/2#issuecomment-5903733062) found the shortened-ledger identity bypass. Source-bound R2 implementation/proof is tracked in [BS-001-A-R2](../BS-001-A-R2/README.md); neither historical proof grants current acceptance.
+
 Role: ONE bounded R1 correction worker, not CT or independent reviewer. Correction claim [5903287424](https://github.com/bohanyt/b-scout/issues/2#issuecomment-5903287424); authority: [CT dispatch 5902991245](https://github.com/bohanyt/b-scout/issues/2#issuecomment-5902991245), [independent finding 5902916741](https://github.com/bohanyt/b-scout/issues/2#issuecomment-5902916741). Correction implemented and reproven for the specified synthetic scope; fresh independent exact-head rereview remains required. B/C remain HELD.
 
 ## Exact lineage and evidence versions

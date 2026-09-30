@@ -2,25 +2,179 @@
 from __future__ import annotations
 
 from fractions import Fraction
+from dataclasses import dataclass, replace
+import copy
+import hashlib
 import json
 from pathlib import Path
 import sqlite3
 import tempfile
 import time
+import weakref
 
-from .common import canonical, fingerprint, fraction, peak_rss, safe_output, sha256
-from .frames import native_digest
+from .common import canonical, digest, fingerprint, fraction, peak_rss, safe_output, sha256
+from .frames import DOMAIN, native_digest
 
-VERSION = "bscout-ledger-v1"
+VERSION = "bscout-ledger-v2"
+PROJECTION = "bscout-traversal-projection-v1"
+
+
+@dataclass(frozen=True, slots=True)
+class DecodeConfig:
+    """Immutable software baseline shared by full validation and seek decode."""
+    stream_index: int | None = None
+    demux_options: tuple = (("ignore_editlist", "0"),)
+    hardware: bool = False
+    thread_count: int = 1
+    thread_type: str = "SLICE"
+    err_detect: str = "explode"
+    ledger_version: str = VERSION
+    projection_version: str = PROJECTION
+    domain_version: str = DOMAIN
+
+    def __post_init__(self):
+        if self.stream_index is not None and (type(self.stream_index) is not int or self.stream_index < 0):
+            raise ValueError("Invalid video stream selection")
+        if (self.demux_options != (("ignore_editlist", "0"),) or type(self.demux_options) is not tuple
+                or self.hardware is not False or type(self.thread_count) is not int or self.thread_count != 1
+                or self.thread_type != "SLICE" or self.err_detect != "explode"
+                or (self.ledger_version, self.projection_version, self.domain_version) != (VERSION, PROJECTION, DOMAIN)):
+            raise ValueError("Unsupported decoder configuration for Checkpoint A")
+
+    def binding(self, toolchain):
+        return {"selected_stream_index": self.stream_index, "demux_options": dict(self.demux_options),
+                "hardware": self.hardware, "thread_count": self.thread_count, "thread_type": self.thread_type,
+                "err_detect": self.err_detect, "ledger_version": self.ledger_version,
+                "projection_version": self.projection_version, "domain_version": self.domain_version,
+                "toolchain": toolchain}
+
+
+class _TraversalState:
+    def __init__(self, source, config):
+        self.source, self.config = source, config
+        self.temp = tempfile.TemporaryDirectory(prefix="bscout-traversal-")
+        self.db = None
+        try:
+            self.db = sqlite3.connect(str(Path(self.temp.name) / "traversal.sqlite"))
+            self.db.execute("PRAGMA cache_size=-256")
+            self.db.execute("CREATE TABLE frames (position INTEGER PRIMARY KEY, pts INTEGER, same INTEGER, key INTEGER, row TEXT)")
+            self.db.execute("CREATE INDEX identity_idx ON frames(pts,same)")
+            self.db.execute("CREATE INDEX anchor_idx ON frames(key,pts)")
+        except BaseException:
+            if self.db is not None:
+                self.db.close()
+            self.temp.cleanup()
+            raise
+        self.header, self.trailer = None, None
+        self.invalid = False
+
+    def dispose(self):
+        try:
+            if self.db is not None:
+                self.db.close()
+        finally:
+            self.db = None
+            self.temp.cleanup()
+
+
+_LIVE = weakref.WeakKeyDictionary()
+
+
+def _state(vt):
+    if type(vt) is not ValidatedTraversal or vt not in _LIVE:
+        raise ValueError("Expected live core-generated ValidatedTraversal; closed/unverified object")
+    state = _LIVE[vt]
+    if state.invalid or state.db is None:
+        raise ValueError("ValidatedTraversal is invalidated or closed")
+    return state
+
+
+class ValidatedTraversal:
+    """Opaque process-local capability. Only an actual core decode can mint it.
+
+    Public metadata is copied; no caller-owned table or deserialized state is
+    imported. This is a trusted-process boundary, not protection from hostile
+    Python code already executing in this process.
+    """
+    __slots__ = ("__weakref__",)
+
+    def __init__(self, *args, **kwargs):
+        raise ValueError("Use validate_traversal; caller state cannot construct a VT")
+
+    def __enter__(self):
+        _state(self)
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+    def close(self):
+        state = _LIVE.pop(self, None)
+        if state is not None:
+            state.dispose()
+
+    @property
+    def header(self):
+        return copy.deepcopy(_state(self).header)
+
+    @property
+    def trailer(self):
+        return copy.deepcopy(_state(self).trailer)
+
+    @property
+    def temporary_directory(self):
+        """Local lifecycle inspection only; never part of portable metadata."""
+        return Path(_state(self).temp.name)
+
+    @property
+    def table_bytes(self):
+        s = _state(self)
+        return (Path(s.temp.name) / "traversal.sqlite").stat().st_size
+
+    def entry(self, position):
+        if type(position) is not int:
+            raise ValueError("Traversal position must be an integer")
+        row = _state(self).db.execute("SELECT row FROM frames WHERE position=?", (position,)).fetchone()
+        if row is None:
+            raise ValueError("Target position absent in validated traversal")
+        return json.loads(row[0])
+
+    def identity(self, pts, same_pts_ordinal=0):
+        s = _state(self)
+        if s.header is None:
+            raise ValueError("No validated source header for identity selection")
+        return (s.header["source_sha256"], s.header["selected_stream_index"], pts, same_pts_ordinal)
+
+
+def _mint(state):
+    vt = object.__new__(ValidatedTraversal)
+    _LIVE[vt] = state
+    weakref.finalize(vt, state.dispose)
+    return vt
+
+
+def public_error(exc, *paths):
+    message = str(exc)
+    for path in paths:
+        for private in (str(path), str(Path(path).resolve())):
+            message = message.replace(repr(private), "'[source]'").replace(private, "[source]")
+    return f"{type(exc).__name__}: {message}"
 
 
 class Timing:
     """Disk-backed counters keep duplicate identity stable even across regressions."""
     def __init__(self):
         self.temp = tempfile.TemporaryDirectory(prefix="bscout-pts-")
-        self.db = sqlite3.connect(str(Path(self.temp.name) / "counts.sqlite"))
-        self.db.execute("PRAGMA cache_size=-256")
-        self.db.execute("CREATE TABLE counts (pts INTEGER PRIMARY KEY, n INTEGER)")
+        self.db = None
+        try:
+            self.db = sqlite3.connect(str(Path(self.temp.name) / "counts.sqlite"))
+            self.db.execute("PRAGMA cache_size=-256")
+            self.db.execute("CREATE TABLE counts (pts INTEGER PRIMARY KEY, n INTEGER)")
+        except BaseException:
+            if self.db is not None:
+                self.db.close()
+            self.temp.cleanup()
+            raise
         self.previous = None
         self.first = None
         self.counts = {"missing": 0, "duplicate": 0, "non_monotonic": 0}
@@ -46,11 +200,15 @@ class Timing:
         return ordinal, flags
 
     def close(self):
-        self.db.close()
-        self.temp.cleanup()
+        try:
+            if self.db is not None:
+                self.db.close()
+        finally:
+            self.db = None
+            self.temp.cleanup()
 
 
-def select_video(container, index=None):
+def select_video(container, index=None, config=None):
     videos = list(container.streams.video)
     if index is None:
         if not videos:
@@ -60,9 +218,10 @@ def select_video(container, index=None):
         stream = next((s for s in videos if s.index == index), None)
         if stream is None:
             raise ValueError("Selected stream is not video")
-    stream.codec_context.thread_count = 1
-    stream.codec_context.thread_type = "SLICE"
-    stream.codec_context.options = {"err_detect": "explode"}
+    config = config or DecodeConfig()
+    stream.codec_context.thread_count = config.thread_count
+    stream.codec_context.thread_type = config.thread_type
+    stream.codec_context.options = {"err_detect": config.err_detect}
     return stream
 
 
@@ -92,90 +251,151 @@ def frame_row(frame, ordinal, timing, source_hash, stream_index):
             "duration": getattr(frame, "duration", None)}
 
 
-def ledger(source: Path, output: Path, stream_index=None):
+def _header(source, before, size, container, stream, first, config, toolchain):
+    codec = stream.codec_context
+    return {"type": "header", "version": VERSION, "projection_version": PROJECTION,
+            "domain_version": DOMAIN, "source_sha256": before, "source_bytes": size,
+            "container": container.format.name, "selected_stream_index": stream.index,
+            "stream_count": len(container.streams), "time_base": fraction(stream.time_base),
+            "codec": codec.name, "pix_fmt": first.format.name,
+            "color": {k: getattr(codec, k, None) for k in
+                      ("color_range", "color_primaries", "color_trc", "colorspace")},
+            "container_start": container.start_time, "container_start_time_base": [1, 1000000],
+            "stream_start": stream.start_time, "stream_start_time_base": fraction(stream.time_base),
+            "first_presented_pts": first.pts, "origin_pts": first.pts,
+            "origin_convention": "first decoded presented-frame PTS; unknown stays unknown",
+            "first_presented_time_base": fraction(first.time_base),
+            "claimed_container_duration": container.duration, "claimed_stream_duration": stream.duration,
+            "claimed_stream_frames": stream.frames,
+            "edit_lists": "FFmpeg demuxer default enabled; ignore_editlist=0 requested",
+            "toolchain": toolchain, "decode_binding": config.binding(toolchain)}
+
+
+# Only these run-local fields are optional and excluded from semantic comparison.
+# Unknown fields are rejected: extensions require a new explicit projection policy.
+_TELEMETRY = {"elapsed_seconds", "peak_rss", "output_bytes_before_trailer", "output_bytes",
+              "traversal_table_bytes"}
+
+
+def _trailer_semantics(trailer):
+    return {k: v for k, v in trailer.items() if k not in _TELEMETRY and k != "projection_sha256"}
+
+
+def validate_traversal(source: Path, config=DecodeConfig(), ledger_out=None):
+    """One complete actual decode creates process-local traversal authority.
+
+    Diagnostic/failed traversals can produce ledgers, but never recover frames.
+    Sources must remain stable local files; hashes detect observed changes, not
+    malicious modify-and-restore races. No persisted state is trusted on import.
+    """
     import av
-    source, output = Path(source), Path(output)
-    safe_output(source, output)
-    before = sha256(source)
-    start = time.perf_counter()
-    timing = Timing()
-    count, errors, last_duration = 0, [], None
-    output.parent.mkdir(parents=True, exist_ok=True)
-    status = "failed"
+    if type(config) is not DecodeConfig:
+        raise ValueError("Expected immutable DecodeConfig")
+    source = Path(source).resolve()
+    output = None if ledger_out is None else Path(ledger_out)
+    if output is not None:
+        safe_output(source, output)
     try:
-        with output.open("xb") as sink:
-            def emit(value):
-                sink.write(canonical(value))
-            try:
-                with av.open(str(source), options={"ignore_editlist": "0"}) as container:
-                    stream = select_video(container, stream_index)
-                    iterator = iter(presented(container, stream))
-                    first = next(iterator, None)
-                    if first is None:
-                        raise ValueError("No presented video frames")
-                    codec = stream.codec_context
-                    emit({"type": "header", "version": VERSION,
-                          "source_sha256": before, "source_bytes": source.stat().st_size,
-                          "container": container.format.name, "selected_stream_index": stream.index,
-                          "stream_count": len(container.streams), "time_base": fraction(stream.time_base),
-                          "codec": codec.name, "pix_fmt": first.format.name,
-                          "color": {k: getattr(codec, k, None) for k in
-                                    ("color_range", "color_primaries", "color_trc", "colorspace")},
-                          "container_start": container.start_time, "container_start_time_base": [1, 1000000],
-                          "stream_start": stream.start_time, "stream_start_time_base": fraction(stream.time_base),
-                          "first_presented_pts": first.pts, "origin_pts": first.pts,
-                          "origin_convention": "first decoded presented-frame PTS; unknown stays unknown",
-                          "first_presented_time_base": fraction(first.time_base),
-                          "claimed_container_duration": container.duration,
-                          "claimed_stream_duration": stream.duration,
-                          "claimed_stream_frames": stream.frames,
-                          "edit_lists": "FFmpeg demuxer default enabled; ignore_editlist=0 requested",
-                          "toolchain": fingerprint()})
-                    frame = first
-                    while frame is not None:
-                        emit(frame_row(frame, count, timing, before, stream.index))
-                        count += 1
-                        last_duration = getattr(frame, "duration", None)
-                        frame = next(iterator, None)
-                    # A short decode against a container claim is incomplete, not success.
-                    if stream.frames and count != stream.frames:
-                        errors.append("Presented-frame count differs from container claimed count")
-                    status = "complete" if not errors and not any(timing.counts.values()) else "diagnostic"
-            except Exception as exc:
-                # Diagnostic artifacts must not expose a private input path.
-                message = str(exc)
-                # Native errors often embed repr(path), with doubled Windows
-                # backslashes. Handle both repr and literal/resolved spellings.
-                for private in (str(source), str(source.resolve())):
-                    message = message.replace(repr(private), "'[source]'")
-                    message = message.replace(private, "[source]")
-                errors.append(f"{type(exc).__name__}: {message}")
-                status = "partial" if count else "failed"
-            unchanged = sha256(source) == before
-            if not unchanged:
-                status = "failed"
-                errors.append("Source SHA changed during read")
-            trailer = {"type": "trailer", "version": VERSION, "status": status,
-                       "presented_frames": count, "timing": timing.counts, "errors": errors,
-                       "discontinuities": "per-frame timing_flags; no fixed-FPS gap inference",
-                       "last_frame_duration": last_duration if last_duration and last_duration > 0 else None,
-                       "last_frame_duration_status": "decoder_reported" if last_duration and last_duration > 0 else "unknown",
-                       "elapsed_seconds": time.perf_counter()-start, "peak_rss": peak_rss(),
-                       "source_unchanged": unchanged, "output_bytes_before_trailer": sink.tell()}
-            trailer["exact_recovery"] = {
-                "status": "supported" if status == "complete" else "unsupported",
-                "rule": "complete ledger with known, unique, strictly increasing PTS only"}
-            # Fixed point allows the trailer to report total UTF-8 bytes, including itself.
+        before, size = sha256(source), source.stat().st_size
+    except Exception as exc:
+        raise ValueError(public_error(exc, source)) from None
+    state = _TraversalState(source, config)
+    timing, sink = None, None
+    start = time.perf_counter()
+    count, errors, last_duration, eof = 0, [], None, False
+    status = "failed"
+    projection = hashlib.sha256()
+    try:
+        timing = Timing()
+        if output is not None:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            sink = output.open("xb")
+        def emit(row):
+            data = canonical(row)
+            projection.update(data)
+            if sink is not None:
+                sink.write(data)
+        try:
+            toolchain = fingerprint()
+            with av.open(str(source), options=dict(config.demux_options)) as container:
+                stream = select_video(container, config.stream_index, config)
+                state.config = replace(config, stream_index=stream.index)
+                iterator = iter(presented(container, stream))
+                first = next(iterator, None)
+                if first is None:
+                    raise ValueError("No presented video frames")
+                state.header = _header(source, before, size, container, stream, first, state.config, toolchain)
+                emit(state.header)
+                frame = first
+                incompatible = False
+                while frame is not None:
+                    row = frame_row(frame, count, timing, before, stream.index)
+                    tb = row["time_base"]
+                    incompatible |= tb is None or tb[0] <= 0 or tb[1] <= 0 or tb != state.header["first_presented_time_base"]
+                    state.db.execute("INSERT INTO frames VALUES (?,?,?,?,?)",
+                                     (count, row["pts"], row["same_pts_ordinal"], int(row["key_frame"]),
+                                      canonical(row).decode("utf-8")))
+                    emit(row)
+                    count += 1
+                    last_duration = getattr(frame, "duration", None)
+                    frame = next(iterator, None)
+                # presented consumes demux EOF and its decoder flush packets.
+                eof = True
+                if stream.frames and count != stream.frames:
+                    errors.append("Presented-frame count differs from container claimed count")
+                if incompatible:
+                    errors.append("Incompatible or unknown presentation time bases")
+                status = "complete" if not errors and not any(timing.counts.values()) else "diagnostic"
+        except Exception as exc:
+            errors.append(public_error(exc, source))
+            status = "partial" if count else "failed"
+        try:
+            unchanged = source.stat().st_size == size and sha256(source) == before
+        except Exception as exc:
+            errors.append(public_error(exc, source))
+            unchanged = False
+        if not unchanged:
+            status = "failed"
+            errors.append("Source SHA/size changed during validation")
+        state.db.commit()
+        table_bytes = (Path(state.temp.name) / "traversal.sqlite").stat().st_size
+        trailer = {"type": "trailer", "version": VERSION, "status": status,
+                   "presented_frames": count, "timing": dict(timing.counts), "errors": errors,
+                   "decode_eof": eof, "validation_passes": 1,
+                   "discontinuities": "per-frame timing_flags; no fixed-FPS gap inference",
+                   "last_frame_duration": last_duration if last_duration and last_duration > 0 else None,
+                   "last_frame_duration_status": "decoder_reported" if last_duration and last_duration > 0 else "unknown",
+                   "elapsed_seconds": time.perf_counter()-start, "peak_rss": peak_rss(),
+                   "source_unchanged": unchanged, "traversal_table_bytes": table_bytes,
+                   "exact_recovery": {"status": "supported" if status == "complete" else "unsupported",
+                       "rule": "core complete traversal with known, unique, strictly increasing PTS and compatible time bases"}}
+        projection.update(canonical(_trailer_semantics(trailer)))
+        trailer["projection_sha256"] = projection.hexdigest()
+        if sink is not None:
+            trailer["output_bytes_before_trailer"] = sink.tell()
             trailer["output_bytes"] = sink.tell()
             while True:
                 total = sink.tell() + len(canonical(trailer))
                 if total == trailer["output_bytes"]:
                     break
                 trailer["output_bytes"] = total
-            emit(trailer)
-        return trailer
+            sink.write(canonical(trailer))
+        state.trailer = trailer
+        return _mint(state)
+    except BaseException:
+        state.dispose()
+        raise
     finally:
-        timing.close()
+        if timing is not None:
+            timing.close()
+        if sink is not None:
+            sink.close()
+
+
+def ledger(source: Path, output: Path, stream_index=None):
+    """Diagnostic-readable v2 ledger from the same full core validation pass."""
+    with validate_traversal(source, DecodeConfig(stream_index=stream_index), ledger_out=output) as vt:
+        return vt.trailer
 
 
 def rows(path):
@@ -184,94 +404,148 @@ def rows(path):
             yield json.loads(line)
 
 
-def recovery_keys(ledger_path, header):
-    """Validate the entire ledger; never trust a header/local counter as safety proof.
+def _check_source(state, source):
+    try:
+        source = Path(source).resolve()
+        if (source != state.source or state.header is None
+                or source.stat().st_size != state.header["source_bytes"]
+                or sha256(source) != state.header["source_sha256"]):
+            raise ValueError("Source differs from validated traversal")
+    except Exception as exc:
+        state.invalid = True
+        raise ValueError(public_error(exc, source, state.source)) from None
 
-    v1 ledgers remain readable. The durable trailer state is advisory: raw rows,
-    completion, and identities are checked again, including later anomalies.
+
+def _check_config(state, config=None):
+    if config is not None:
+        if type(config) is not DecodeConfig:
+            raise ValueError("Expected immutable DecodeConfig")
+        normalized = replace(config, stream_index=state.config.stream_index) if config.stream_index is None else config
+        if normalized != state.config:
+            raise ValueError("Recovery configuration differs from validated traversal")
+    if canonical(fingerprint()) != canonical(state.header["toolchain"]):
+        state.invalid = True
+        raise ValueError("Native toolchain differs from validated traversal")
+
+
+def verify_source(vt, source):
+    """Recheck the source binding before a caller publishes withheld output."""
+    state = _state(vt)
+    _check_source(state, source)
+    _check_config(state)
+
+
+def _same_projection(actual, expected, telemetry=frozenset()):
+    if not isinstance(actual, dict) or set(actual)-set(expected)-set(telemetry):
+        return False
+    required = set(expected)-set(telemetry)
+    if not required.issubset(actual):
+        return False
+    return canonical({k: actual[k] for k in required}) == canonical({k: expected[k] for k in required})
+
+
+def compare_ledger(vt, ledger_path):
+    """Strict semantic cross-check against actual core observations, never authority.
+
+    v1 is diagnostic-readable only: it lacks the explicit v2 config binding.
+    Header/frame fields and trailer observation facts are required. Only the
+    documented trailer telemetry fields may vary or be omitted.
     """
-    if ledger_path is None:
-        raise ValueError("Exact recovery requires a complete validated ledger")
-    count, previous, found_header, trailer = 0, None, False, None
-    keys = []
-    for row in rows(ledger_path):
-        kind = row.get("type")
-        if trailer is not None:
-            raise ValueError("Recovery ledger has records after trailer")
-        if kind == "header" and not found_header and count == 0:
-            if row != header or row.get("version") != VERSION:
-                raise ValueError("Recovery ledger header mismatch")
-            found_header = True
-        elif kind == "frame" and found_header:
-            pts = row.get("pts")
-            if pts is None or (previous is not None and pts <= previous):
-                raise ValueError("Exact recovery unsupported: missing/duplicate/non-monotonic PTS")
-            if (row.get("ordinal") != count or row.get("same_pts_ordinal") != 0
-                    or row.get("timing_flags") != []
-                    or row.get("identity") != [header["source_sha256"],
-                        header["selected_stream_index"], pts, 0]
-                    or row.get("time_base") != header["first_presented_time_base"]
-                    or (count == 0 and pts != header["first_presented_pts"])):
-                raise ValueError("Recovery ledger frame identity/timing mismatch")
-            if row["key_frame"]:
-                keys.append(pts)
-            previous, count = pts, count + 1
-        elif kind == "trailer" and found_header:
-            trailer = row
-        else:
-            raise ValueError("Invalid recovery ledger record order")
-    if (not count or trailer is None or trailer.get("version") != VERSION
-            or trailer.get("status") != "complete"
-            or trailer.get("presented_frames") != count
-            or trailer.get("timing") != {"missing": 0, "duplicate": 0, "non_monotonic": 0}
-            or trailer.get("errors") != [] or trailer.get("source_unchanged") is not True):
-        raise ValueError("Exact recovery unsupported: incomplete or unsafe ledger")
-    return keys
+    state = _state(vt)
+    if state.header is None:
+        raise ValueError("No validated source header for ledger comparison")
+    _check_source(state, state.source)
+    _check_config(state)
+    records = iter(_imported_rows(ledger_path))
+    if not _same_projection(next(records, None), state.header):
+        raise ValueError("Imported ledger header/config/version differs from source traversal; legacy ledger unverified")
+    for (stored,) in state.db.execute("SELECT row FROM frames ORDER BY position"):
+        if not _same_projection(next(records, None), json.loads(stored)):
+            raise ValueError("Imported ledger frame differs from complete source traversal")
+    if not _same_projection(next(records, None), state.trailer, _TELEMETRY):
+        raise ValueError("Imported ledger trailer/completion differs from source traversal")
+    if next(records, None) is not None:
+        raise ValueError("Imported ledger has extra records")
+    _check_source(state, state.source)
+    return {"status": "matched", "projection_version": PROJECTION,
+            "projection_sha256": state.trailer["projection_sha256"]}
 
 
-def recover(source: Path, target: dict, header: dict, keys: list[int], *, ledger_path=None):
-    """Actual backward keyframe seek, then presentation decode to exact identity."""
+def _imported_rows(path):
+    try:
+        yield from rows(path)
+    except Exception as exc:
+        raise ValueError(public_error(exc, path)) from None
+
+
+def recover(source: Path, vt, requested_identity, *, ledger_path=None, config=None):
+    """Source-bound real backward seek with contiguous VT alignment through target."""
     import av
-    source = Path(source)
-    if sha256(source) != header["source_sha256"]:
-        raise ValueError("Source digest differs from ledger")
-    identity = target.get("identity")
-    if identity is None or target["pts"] is None:
-        raise ValueError("Exact recovery unavailable for unknown timing")
-    if identity != [header["source_sha256"], header["selected_stream_index"],
-                    target["pts"], target["same_pts_ordinal"]]:
-        raise ValueError("Canonical target identity mismatch")
-    validated_keys = recovery_keys(ledger_path, header)
-    if keys != validated_keys:
-        raise ValueError("Recovery keyframes differ from validated ledger")
-    if target["same_pts_ordinal"] != 0:
-        raise ValueError("Exact recovery unsupported: duplicate occurrence")
-    # Seek strictly earlier than target and earlier than its preceding keyframe,
-    # avoiding DTS-index/B-frame leading presentation traps and duplicate cuts.
-    earlier = [p for p in keys if p < target["pts"]]
-    anchor = max(earlier) if earlier else header["first_presented_pts"]
-    with av.open(str(source), options={"ignore_editlist": "0"}) as container:
-        stream = select_video(container, header["selected_stream_index"])
-        target_tb = Fraction(*target["time_base"])
-        offset = (Fraction(anchor-1) * target_tb) / stream.time_base
-        seek_pts = offset.numerator // offset.denominator
-        container.seek(seek_pts, stream=stream, backward=True, any_frame=False)
-        decoded, previous = 0, None
-        first_emitted = None
-        for frame in presented(container, stream):
-            decoded += 1
-            if first_emitted is None:
-                first_emitted = frame.pts
-            if frame.time_base != target_tb:
-                raise ValueError("Recovery time base differs from ledger")
-            if frame.pts is None or (previous is not None and frame.pts <= previous):
-                raise ValueError("Exact recovery unsupported: unsafe seek-path timing")
-            previous = frame.pts
-            if frame.pts == target["pts"]:
-                actual, _ = native_digest(frame)
-                if actual != target["native_sha256"]:
-                    raise ValueError("Seek-path native digest mismatch")
-                return frame, {"identity": identity, "sha256": actual,
-                               "seek_offset": seek_pts, "first_emitted_pts": first_emitted,
-                               "decoded_forward": decoded, "backward": True, "any_frame": False}
-        raise ValueError("Exact known target identity never emitted after seek")
+    state = _state(vt)
+    if state.trailer["status"] != "complete" or not state.trailer["decode_eof"]:
+        raise ValueError("Exact recovery unsupported: unsafe/incomplete source traversal")
+    _check_source(state, source)
+    _check_config(state, config)
+    if ledger_path is not None:
+        compare_ledger(vt, ledger_path)
+    if not isinstance(requested_identity, (tuple, list)) or len(requested_identity) != 4:
+        raise ValueError("Expected canonical identity request, not caller target metadata")
+    source_hash, stream_index, pts, same = requested_identity
+    if (source_hash != state.header["source_sha256"] or type(stream_index) is not int
+            or stream_index != state.config.stream_index or type(pts) is not int or type(same) is not int):
+        raise ValueError("Canonical target identity differs from validated source/stream or timing unknown")
+    if same != 0:
+        raise ValueError("Exact recovery unsupported: nonzero duplicate occurrence ordinal")
+    stored = state.db.execute("SELECT row FROM frames WHERE pts=? AND same=0", (pts,)).fetchone()
+    if stored is None:
+        raise ValueError("Target identity absent in validated traversal (before seek)")
+    target = json.loads(stored[0])
+    anchor_row = state.db.execute("SELECT pts FROM frames WHERE key=1 AND pts<? ORDER BY pts DESC LIMIT 1", (pts,)).fetchone()
+    anchor = anchor_row[0] if anchor_row else state.header["first_presented_pts"]
+    target_tb = Fraction(*target["time_base"])
+    decoded, previous_pts, position, first_emitted, result = 0, None, None, None, None
+    try:
+        with av.open(str(state.source), options=dict(state.config.demux_options)) as container:
+            stream = select_video(container, state.config.stream_index, state.config)
+            if fraction(stream.time_base) != state.header["time_base"]:
+                raise ValueError("Seek stream time base differs from validated traversal")
+            offset = (Fraction(anchor-1)*target_tb)/stream.time_base
+            seek_pts = offset.numerator//offset.denominator
+            container.seek(seek_pts, stream=stream, backward=True, any_frame=False)
+            for frame in presented(container, stream):
+                decoded += 1
+                if frame.pts is None or (previous_pts is not None and frame.pts <= previous_pts):
+                    raise ValueError("Unsafe seek-path timing")
+                if frame.time_base != target_tb:
+                    raise ValueError("Seek frame time base differs from validated traversal")
+                if position is None:
+                    found = state.db.execute("SELECT position FROM frames WHERE pts=? AND same=0", (frame.pts,)).fetchone()
+                    if found is None or found[0] > target["ordinal"]:
+                        raise ValueError("Seek first frame unaligned or overshoots target")
+                    position, first_emitted = found[0], frame.pts
+                else:
+                    position += 1
+                expected = vt.entry(position)
+                actual_digest, domain = native_digest(frame)
+                actual = {"pts": frame.pts, "time_base": fraction(frame.time_base),
+                          "key_frame": bool(frame.key_frame), "width": frame.width, "height": frame.height,
+                          "pix_fmt": frame.format.name, "native_sha256": actual_digest, "digest_domain": domain}
+                if canonical(actual) != canonical({k: expected[k] for k in actual}):
+                    raise ValueError("Seek frame alignment/representation/native digest mismatch")
+                previous_pts = frame.pts
+                if position == target["ordinal"]:
+                    result = frame, {"identity": target["identity"], "sha256": target["native_sha256"],
+                        "source_sha256": state.header["source_sha256"],
+                        "decode_binding_sha256": digest(state.header["decode_binding"]),
+                        "projection_version": PROJECTION, "projection_sha256": state.trailer["projection_sha256"],
+                        "target_position": position, "seek_offset": seek_pts, "first_emitted_pts": first_emitted,
+                        "decoded_forward": decoded, "backward": True, "any_frame": False}
+                    break
+            if result is None:
+                raise ValueError("Target present in VT but never emitted after seek")
+        # Withhold the frame/proof until the post-check succeeds, including close.
+        _check_source(state, source)
+        return result
+    except Exception as exc:
+        _check_source(state, source)
+        raise ValueError(public_error(exc, source)) from None

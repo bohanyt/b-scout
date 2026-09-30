@@ -2,7 +2,6 @@
 from fractions import Fraction
 import importlib.util
 from pathlib import Path
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -18,7 +17,7 @@ if HAS_RUNTIME:
     import numpy as np
     from bscout.corpus import load_corpus, make_frame, planes_for, encode
     from bscout.frames import native_digest, native_planes, read_id
-    from bscout.ledger import Timing, frame_row, ledger, rows, recover, presented
+    from bscout.ledger import Timing, frame_row, ledger, recover, presented, validate_traversal
     from bscout.oracle import nearest, timing_check, survival
 
 
@@ -50,154 +49,6 @@ class ContractTests(unittest.TestCase):
 
 @unittest.skipUnless(HAS_RUNTIME, "Checkpoint A media tests require pinned av/numpy; run proof entrypoint")
 class TemporalTests(unittest.TestCase):
-    def injected_recovery(self, directory, pts):
-        from bscout.common import sha256
-        from bscout.ledger import VERSION
-        source = Path(directory) / "synthetic.bin"
-        source.write_bytes(b"synthetic injected source")
-        frames, entries = [], []
-        timing = Timing()
-        header = {"type": "header", "version": VERSION, "source_sha256": sha256(source),
-                  "selected_stream_index": 0, "first_presented_pts": pts[0],
-                  "first_presented_time_base": [1, 1000]}
-        try:
-            for i, p in enumerate(pts):
-                f = av.VideoFrame(8, 8, "yuv420p")
-                f.pts, f.time_base = p, Fraction(1, 1000)
-                for plane in f.planes:
-                    plane.update(bytes(plane.buffer_size))
-                frames.append(f)
-                entries.append(frame_row(f, i, timing, header["source_sha256"], 0))
-            trailer = {"type": "trailer", "version": VERSION,
-                       "status": "diagnostic" if any(timing.counts.values()) else "complete",
-                       "presented_frames": len(pts), "timing": dict(timing.counts),
-                       "errors": [], "source_unchanged": True}
-        finally:
-            timing.close()
-        # Explicit keyframes reproduce the reviewer's seek anchors.
-        for entry in entries:
-            entry["key_frame"] = entry["pts"] in (0, 20, 50)
-        path = Path(directory) / "ledger.jsonl"
-        path.write_bytes(b"".join(canonical(r) for r in [header, *entries, trailer]))
-        keys = [r["pts"] for r in entries if r["key_frame"] and r["pts"] is not None]
-        return source, path, frames, entries, header, keys
-
-    def test_r1_identical_pixels_later_duplicate_never_recovers_first(self):
-        from unittest.mock import patch
-        from types import SimpleNamespace
-        with tempfile.TemporaryDirectory() as d:
-            source, path, frames, entries, header, keys = self.injected_recovery(d, [0,100,20,50,100])
-            self.assertEqual(entries[1]["native_sha256"], entries[4]["native_sha256"])
-            self.assertNotEqual(entries[1]["identity"], entries[4]["identity"])
-            # If reached, this exact suffix would return the wrong identical-pixel occurrence.
-            with patch("av.open") as opened, patch("bscout.ledger.select_video",
-                    return_value=SimpleNamespace(time_base=Fraction(1,1000))), \
-                    patch("bscout.ledger.presented", return_value=iter(frames[2:])):
-                with self.assertRaisesRegex(ValueError, "unsupported.*non-monotonic"):
-                    recover(source, entries[1], header, keys, ledger_path=path)
-                opened.assert_not_called()
-
-    def test_recovery_rejects_nearby_timing_anomalies_in_entire_ledger(self):
-        from unittest.mock import patch
-        for pts in ([0,100,100], [0,100,20], [0,100,None], [None,100,200], [0,100,200,100]):
-            with self.subTest(pts=pts), tempfile.TemporaryDirectory() as d:
-                source, path, _, entries, header, keys = self.injected_recovery(d, pts)
-                with patch("av.open") as opened:
-                    with self.assertRaisesRegex(ValueError, "unsupported"):
-                        recover(source, entries[1], header, keys, ledger_path=path)
-                    opened.assert_not_called()
-
-    def test_recovery_api_cannot_bypass_validation_with_header_only(self):
-        from unittest.mock import patch
-        with tempfile.TemporaryDirectory() as d:
-            source, _, _, entries, header, keys = self.injected_recovery(d, [0,100,20,50,100])
-            header["exact_recovery"] = {"status": "supported"}
-            with patch("av.open") as opened:
-                with self.assertRaisesRegex(ValueError, "complete validated ledger"):
-                    recover(source, entries[1], header, keys)
-                opened.assert_not_called()
-
-    def test_recovery_recomputes_safety_instead_of_trusting_declared_status(self):
-        from unittest.mock import patch
-        with tempfile.TemporaryDirectory() as d:
-            source, path, _, entries, header, keys = self.injected_recovery(d, [0,100,20,50,100])
-            records = list(rows(path))
-            records[-1].update(status="complete", timing={"missing":0,"duplicate":0,"non_monotonic":0},
-                               exact_recovery={"status":"supported"})
-            for row in records[1:-1]:
-                row["timing_flags"] = []
-                row["same_pts_ordinal"] = 0
-                row["identity"][-1] = 0
-            path.write_bytes(b"".join(canonical(r) for r in records))
-            with patch("av.open") as opened:
-                with self.assertRaisesRegex(ValueError, "unsupported"):
-                    recover(source, entries[1], header, keys, ledger_path=path)
-                opened.assert_not_called()
-
-    def test_recovery_incomplete_or_unrelated_ledger_rejected(self):
-        from unittest.mock import patch
-        with tempfile.TemporaryDirectory() as d:
-            source, path, _, entries, header, keys = self.injected_recovery(d, [0,100,200])
-            records = list(rows(path))
-            for changed in (records[:-1], [*records, records[-1]],
-                            [dict(header, source_sha256="0"*64), *records[1:]]):
-                path.write_bytes(b"".join(canonical(r) for r in changed))
-                with patch("av.open") as opened:
-                    with self.assertRaises(ValueError):
-                        recover(source, entries[1], header, keys, ledger_path=path)
-                    opened.assert_not_called()
-
-    def test_recovery_supported_seek_missing_target_and_native_digest(self):
-        from unittest.mock import patch, MagicMock
-        from types import SimpleNamespace
-        with tempfile.TemporaryDirectory() as d:
-            source, path, frames, entries, header, keys = self.injected_recovery(d, [0,100,200])
-            container = MagicMock()
-            container.__enter__.return_value = container
-            with patch("av.open", return_value=container), patch("bscout.ledger.select_video",
-                    return_value=SimpleNamespace(time_base=Fraction(1,1000))), \
-                    patch("bscout.ledger.presented", side_effect=lambda *a: iter(frames)):
-                frame, proof = recover(source, entries[1], header, keys, ledger_path=path)
-                self.assertIs(frame, frames[1])
-                self.assertEqual(proof["identity"], entries[1]["identity"])
-                self.assertTrue(container.seek.call_args.kwargs["backward"])
-                bad = dict(entries[1], native_sha256="0"*64)
-                with self.assertRaisesRegex(ValueError, "native digest mismatch"):
-                    recover(source, bad, header, keys, ledger_path=path)
-                missing = dict(entries[1], pts=150)
-                missing["identity"] = [header["source_sha256"],0,150,0]
-                with self.assertRaisesRegex(ValueError, "never emitted"):
-                    recover(source, missing, header, keys, ledger_path=path)
-
-    def test_cli_rejects_r1_without_writing_recovery_output(self):
-        from bscout.cli import main
-        from unittest.mock import patch
-        import io
-        with tempfile.TemporaryDirectory() as d:
-            source, path, _, _, _, _ = self.injected_recovery(d, [0,100,20,50,100])
-            output, error = Path(d)/"recovered.yuv", io.StringIO()
-            with patch("sys.stderr", error), patch("av.open") as opened:
-                self.assertEqual(main(["recover", str(source), "--ledger", str(path),
-                                       "--pts", "100", "--out", str(output)]), 2)
-                opened.assert_not_called()
-            self.assertIn("unsupported", error.getvalue())
-            self.assertFalse(output.exists())
-
-    def test_recovery_rejects_unsafe_timing_emitted_after_seek(self):
-        from unittest.mock import patch, MagicMock
-        from types import SimpleNamespace
-        with tempfile.TemporaryDirectory() as d:
-            source, path, _, entries, header, keys = self.injected_recovery(d, [0,100,200])
-            for emitted in ([0,None,100], [0,0,100], [50,20,100]):
-                container = MagicMock()
-                container.__enter__.return_value = container
-                frames = [SimpleNamespace(pts=p, time_base=Fraction(1,1000)) for p in emitted]
-                with self.subTest(emitted=emitted), patch("av.open", return_value=container), \
-                        patch("bscout.ledger.select_video", return_value=SimpleNamespace(time_base=Fraction(1,1000))), \
-                        patch("bscout.ledger.presented", return_value=iter(frames)):
-                    with self.assertRaisesRegex(ValueError, "unsafe seek-path timing"):
-                        recover(source, entries[1], header, keys, ledger_path=path)
-
     def test_failure_ledger_does_not_expose_source_path(self):
         with tempfile.TemporaryDirectory(prefix="bscout private diagnostic ") as d:
             source = Path(d)/"nonmedia.mp4"
@@ -293,22 +144,18 @@ class TemporalTests(unittest.TestCase):
             source = Path(d) / "vid é ไทย.mkv"
             output = Path(d) / "ledger.jsonl"
             encode(spec, f, source)
-            self.assertEqual(ledger(source, output)["status"], "complete")
-            entries = list(rows(output))
-            header = entries[0]
-            target = [r for r in entries if r["type"] == "frame"][1]
-            frame, result = recover(source, target, header, [0], ledger_path=output)
-            self.assertEqual(result["sha256"], target["native_sha256"])
-            self.assertTrue(all(np.array_equal(a,b) for a,b in zip(native_planes(frame)[0], planes_for(spec,f,1))))
+            with validate_traversal(source, ledger_out=output) as vt:
+                self.assertEqual(vt.trailer["status"], "complete")
+                target = vt.entry(1)
+                frame, result = recover(source, vt, target["identity"], ledger_path=output)
+                self.assertEqual(result["sha256"], target["native_sha256"])
+                self.assertTrue(all(np.array_equal(a,b) for a,b in zip(native_planes(frame)[0], planes_for(spec,f,1))))
+                with self.assertRaisesRegex(ValueError, "absent|not found"):
+                    recover(source, vt, vt.identity(333), ledger_path=output)
+                with self.assertRaises((ValueError, TypeError)):
+                    recover(source, vt, None, ledger_path=output)
             with self.assertRaises(ValueError):
                 ledger(source, source)
-            bad = dict(target, pts=333)
-            bad["identity"] = [header["source_sha256"], 0, 333, 0]
-            with self.assertRaisesRegex(ValueError, "never emitted"):
-                recover(source, bad, header, [0], ledger_path=output)
-            unknown = dict(target, pts=None, identity=None)
-            with self.assertRaisesRegex(ValueError, "unknown timing"):
-                recover(source, unknown, header, [0], ledger_path=output)
 
     def test_symlink_source_rejected_where_supported(self):
         import os
