@@ -1,0 +1,31 @@
+test_best_frame_outside_interval_fails (test_bootstrap.BootstrapTests.test_best_frame_outside_interval_fails) ... ok
+test_context_outside_source_fails (test_bootstrap.BootstrapTests.test_context_outside_source_fails) ... ok
+test_distinct_occurrences_can_share_content (test_bootstrap.BootstrapTests.test_distinct_occurrences_can_share_content) ... ok
+test_end_before_start_fails (test_bootstrap.BootstrapTests.test_end_before_start_fails) ... ok
+test_example_cannot_claim_complete (test_bootstrap.BootstrapTests.test_example_cannot_claim_complete) ... ok
+test_examples_are_explicitly_unmeasured (test_bootstrap.BootstrapTests.test_examples_are_explicitly_unmeasured) ... ok
+test_illustrative_five_frame_interval_is_not_rounded (test_bootstrap.BootstrapTests.test_illustrative_five_frame_interval_is_not_rounded) ... ok
+test_missing_event_id_fails_schema (test_bootstrap.BootstrapTests.test_missing_event_id_fails_schema) ... ok
+test_missing_evidence_ref_fails (test_bootstrap.BootstrapTests.test_missing_evidence_ref_fails) ... ok
+test_scanned_more_than_decoded_fails (test_bootstrap.BootstrapTests.test_scanned_more_than_decoded_fails) ... ok
+test_source_mismatch_fails (test_bootstrap.BootstrapTests.test_source_mismatch_fails) ... ok
+test_unknown_semantic_label_fails_schema (test_bootstrap.BootstrapTests.test_unknown_semantic_label_fails_schema) ... ok
+test_unsafe_paths_are_rejected (test_bootstrap.BootstrapTests.test_unsafe_paths_are_rejected) ... ok
+test_canonical_is_semantic_utf8_lf_and_no_nan (test_temporal.ContractTests.test_canonical_is_semantic_utf8_lf_and_no_nan) ... ok
+test_no_production_analyze_command (test_temporal.ContractTests.test_no_production_analyze_command) ... ok
+test_output_source_and_hardlink_fail_before_write (test_temporal.ContractTests.test_output_source_and_hardlink_fail_before_write) ... ok
+test_actual_unicode_spaced_lossless_path_and_exact_recovery (test_temporal.TemporalTests.test_actual_unicode_spaced_lossless_path_and_exact_recovery) ... ok
+test_checked_id_and_corrupted_bit_rejected (test_temporal.TemporalTests.test_checked_id_and_corrupted_bit_rejected) ... ok
+test_concealed_corruption_is_rejected (test_temporal.TemporalTests.test_concealed_corruption_is_rejected) ... ok
+test_digest_ignores_native_row_padding_includes_dimensions (test_temporal.TemporalTests.test_digest_ignores_native_row_padding_includes_dimensions) ... ok
+test_erased_easy_survival_is_degraded (test_temporal.TemporalTests.test_erased_easy_survival_is_degraded) ... ok
+test_failure_ledger_does_not_expose_source_path (test_temporal.TemporalTests.test_failure_ledger_does_not_expose_source_path) ... ok
+test_frozen_corpus_and_splits (test_temporal.TemporalTests.test_frozen_corpus_and_splits) ... ok
+test_nearest_exact_ties_signed_and_bound (test_temporal.TemporalTests.test_nearest_exact_ties_signed_and_bound) ... ok
+test_pts_missing_duplicate_and_regression_identity (test_temporal.TemporalTests.test_pts_missing_duplicate_and_regression_identity) ... ok
+test_symlink_source_rejected_where_supported (test_temporal.TemporalTests.test_symlink_source_rejected_where_supported) ... skipped 'OS cannot create symlinks: OSError, winerror=1314'
+
+----------------------------------------------------------------------
+Ran 26 tests in 0.368s
+
+OK (skipped=1)
