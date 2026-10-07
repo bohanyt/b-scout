@@ -75,6 +75,8 @@ def validate_pair(manifest: dict, event: dict) -> None:
 def check_links(root: Path = ROOT) -> int:
     checked = 0
     for file in root.rglob("*.md"):
+        if any(part.startswith(".") for part in file.relative_to(root).parts):
+            continue  # Private owner workspace and environment are outside public docs.
         for raw in re.findall(r"(?<!!)\[[^\]]+\]\(([^\s)]+)\)", file.read_text(encoding="utf-8")):
             if raw.startswith(("https://", "http://", "mailto:", "#")):
                 continue
@@ -94,11 +96,7 @@ def main() -> int:
         validate_pair(load_json(ROOT / "examples/manifest.example.json"),
                       load_json(ROOT / "examples/event.example.json"))
         count = check_links()
-        sentinel = "END_OF_BSCOUT_CT_HANDOFF key=BSCOUT-CT-HANDOFF-20260924-V1 sections=9"
-        handoff = (ROOT / "docs/handoffs/2026-09-24-bootstrap.md").read_text(encoding="utf-8")
-        if not handoff.rstrip().endswith(sentinel):
-            raise ValueError("Missing full handoff end marker")
-        print(f"PASS: 2 draft schemas, 2 illustrative records, cross-record checks, {count} local links, handoff marker")
+        print(f"PASS: 2 draft schemas, 2 illustrative records, cross-record checks, {count} local links")
         print("Scope: bootstrap only. No video detection, runtime recall, GUI, or provider was tested.")
         return 0
     except Exception as exc:

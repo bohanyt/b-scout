@@ -34,6 +34,8 @@ models/
 *.assets
 *.dll
 *.resS
+*.h264
+*.yuv
 
 # Python / builds
 __pycache__/
@@ -47,3 +49,4 @@ node_modules/
 target/
 .DS_Store
 Thumbs.db
+.drive/
