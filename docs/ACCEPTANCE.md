@@ -2,7 +2,7 @@
 
 ## Gate A — bootstrap only
 
-Schemas parse, illustrative records validate, relative documentation links resolve, negative contract cases fail, no raw assets/secrets are committed, and CURRENT/handoff agree that the analyzer is not implemented. This gate establishes repository readiness only.
+Schemas parse, illustrative records validate, relative documentation links resolve, negative contract cases fail, no raw assets/secrets are committed, and public documentation accurately states implemented and untested capabilities. This gate establishes repository readiness only.
 
 ## Gate B — first native-frame baseline (BS-001)
 

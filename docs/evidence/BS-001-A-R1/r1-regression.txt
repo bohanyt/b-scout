@@ -1,6 +1,0 @@
-test_r1_identical_pixels_later_duplicate_never_recovers_first (test_temporal.TemporalTests.test_r1_identical_pixels_later_duplicate_never_recovers_first) ... ok
-
-----------------------------------------------------------------------
-Ran 1 test in 0.106s
-
-OK

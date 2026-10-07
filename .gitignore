@@ -49,3 +49,4 @@ node_modules/
 target/
 .DS_Store
 Thumbs.db
+.drive/

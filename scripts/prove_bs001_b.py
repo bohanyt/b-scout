@@ -22,7 +22,7 @@ import venv
 import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_FREEZE = ROOT / "docs/evidence/BS-001-B/config-freeze.json"
+DEFAULT_FREEZE = ROOT / "tests/baselines/regional-config.json"
 
 
 def canonical_hash(value):
@@ -189,7 +189,7 @@ def independent_frames(source, spec, fixture, decode_config):
 
 def historical_comparison(fixture, rows, frozen_truth):
     from bscout.common import sha256
-    path = ROOT / "docs/evidence/BS-001-A-R2/result.json"
+    path = ROOT / "tests/baselines/native-digests.json"
     historical = json.loads(path.read_text(encoding="utf-8"))
     prior = next(f for f in historical["oracle"]["fixtures"] if f["id"] == fixture["id"])
     native = [{"generator_id": f["generator_id"], "equal":

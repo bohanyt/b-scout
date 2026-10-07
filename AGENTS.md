@@ -1,14 +1,10 @@
 # Agent entry point
 
-Read in order: [CURRENT.md](CURRENT.md), [Control Tower role](docs/control-tower/ROLE.md), [Control Tower protocol](docs/control-tower/PROTOCOL.md), the current handoff linked there, then your assigned task and its acceptance criteria. Fresh-check main, issue #1, your task issue, and existing claims/PRs before writes.
+GitHub is the code and public documentation workspace. The owner maintains current state, task acceptance criteria, claims, Control Tower coordination, handoffs and runtime reports in a separate private workspace. For owner-assigned work, read its CURRENT and assigned scope before changes; use the owner-provided access location rather than publishing a private link here. A local owner workspace may be mounted as ignored `.drive/`.
 
 ## Authority and scope
 
-The user owns product direction and release decisions. The originating B-Scout conversation is Primary Control Tower until the user explicitly transfers that role. The Control Tower is the project's continuity owner / technical project manager across the whole roadmap; it is not the default implementation worker. Issue #1 is the durable coordination log, not an independent source of unlimited authority. Workers are bounded implementers/reviewers; they do not merge, release, publish media, change product scope, or promote themselves to Control Tower.
-
-After an explicit user-authorized transfer, the replacement CT may continue the full project lifecycle: reconcile state, select the next evidence gate, create/split/defer task issues, dispatch workers/reviewers, require corrections, maintain CURRENT/handoffs, and advance the roadmap as evidence permits. Implementation work still uses bounded task ownership and one branch/DRAFT PR per task. Merge/release remains user-authorized.
-
-This initial repository bootstrap is authorized directly on the empty main branch. Subsequent implementation uses one task issue, one branch, and one DRAFT PR. Reuse the same branch/PR for corrections. Do not create parallel replacements or assign yourself unrelated roadmap work.
+The user owns product direction and merge/release decisions. A Control Tower coordinates evidence gates and bounded workers after explicit user transfer recorded privately. Workers/reviewers do not promote themselves, merge/release, publish media or broaden task scope. Fresh-check repository refs, existing PRs and private claims before writes. Reuse the existing task branch/DRAFT PR for corrections. Record exact heads, commands/results, limitations and the next blocker in the private workspace.
 
 ## Non-negotiable constraints
 
@@ -24,6 +20,6 @@ This initial repository bootstrap is authorized directly on the empty main branc
 
 ## Delivery and evidence
 
-Report exact base/head, changed paths, commands and results, environment, untested behavior, and the next smallest blocker. Update CURRENT only for facts justified by evidence. A green contract test is not a passing detection benchmark or Windows runtime test. Keep one canonical state document; handoffs are dated snapshots, not competing CURRENT files.
+Report exact base/head, changed paths, commands and results, environment, untested behavior, and the next smallest blocker. Update private CURRENT only for facts justified by evidence. A green contract test is not a passing detection benchmark or Windows runtime test. Keep one canonical state document; handoffs are dated snapshots, not competing CURRENT files.
 
 Minimize connector calls: reuse fresh source reads, batch related changes, and re-read only authority, HEAD, changed scope, or missing evidence.
